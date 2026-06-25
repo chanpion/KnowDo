@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知行 KnowDo - 企业级AI知识库平台</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="header" id="app-header"></header>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <!-- 面包屑 -->
+    <div class="page-header">
+      <div class="breadcrumb" id="page-breadcrumb">
+        <a href="index.html">🏠 首页</a>
+      </div>
+      <h1 class="page-title" id="page-title">平台概览</h1>
+      <p class="page-subtitle">欢迎回来，张明远。以下是今日知识库概况。</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid-4 mb-lg" id="stats-cards">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;color:#1a56db;">📚</div>
+        <div class="stat-value">12,847</div>
+        <div class="stat-label">知识总数</div>
+        <div class="stat-trend up">↑ 12% 较上月</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#ecfdf5;color:#10b981;">🆕</div>
+        <div class="stat-value">286</div>
+        <div class="stat-label">本周新增</div>
+        <div class="stat-trend up">↑ 8% 较上周</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;color:#1a56db;">✏️</div>
+        <div class="stat-value">47</div>
+        <div class="stat-label">我的贡献</div>
+        <div class="stat-trend up">↑ 5篇 本月</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;">⏳</div>
+        <div class="stat-value">2</div>
+        <div class="stat-label">待审核</div>
+        <div class="stat-trend" style="color:#f59e0b;">⚠ 需要处理</div>
+      </div>
+    </div>
+
+    <!-- 快捷入口 -->
+    <div class="card mb-lg">
+      <div class="card-body">
+        <div class="grid-4" style="text-align:center;">
+          <a href="knowledge-create.html" style="text-decoration:none;color:inherit;">
+            <div style="padding:16px;border-radius:12px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='transparent'">
+              <div style="font-size:32px;margin-bottom:8px;">✏️</div>
+              <div style="font-size:14px;font-weight:600;">创建知识</div>
+              <div style="font-size:12px;color:#94a3b8;">分享你的专业知识</div>
+            </div>
+          </a>
+          <a href="#" style="text-decoration:none;color:inherit;">
+            <div style="padding:16px;border-radius:12px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#ecfdf5'" onmouseout="this.style.background='transparent'">
+              <div style="font-size:32px;margin-bottom:8px;">📋</div>
+              <div style="font-size:14px;font-weight:600;">我的草稿</div>
+              <div style="font-size:12px;color:#94a3b8;">3篇待完成</div>
+            </div>
+          </a>
+          <a href="#" style="text-decoration:none;color:inherit;">
+            <div style="padding:16px;border-radius:12px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='transparent'">
+              <div style="font-size:32px;margin-bottom:8px;">✅</div>
+              <div style="font-size:14px;font-weight:600;">待审核</div>
+              <div style="font-size:12px;color:#94a3b8;">2篇待处理</div>
+            </div>
+          </a>
+          <a href="#" style="text-decoration:none;color:inherit;">
+            <div style="padding:16px;border-radius:12px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='transparent'">
+              <div style="font-size:32px;margin-bottom:8px;">⭐</div>
+              <div style="font-size:14px;font-weight:600;">我的收藏</div>
+              <div style="font-size:12px;color:#94a3b8;">快速访问</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 内容区两栏布局 -->
+    <div class="layout-with-sidebar">
+      <!-- 热门知识 -->
+      <div class="layout-main">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🔥 热门知识 Top 10</span>
+            <a href="knowledge-browse.html" style="font-size:13px;">查看全部 →</a>
+          </div>
+          <div class="card-body" id="hot-knowledge-list">
+            <!-- 由JS动态渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 最新知识时间线 -->
+      <div class="layout-sidebar">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🆕 最新发布</span>
+            <a href="knowledge-browse.html" style="font-size:13px;">更多 →</a>
+          </div>
+          <div class="card-body" id="latest-timeline">
+            <!-- 由JS动态渲染 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/common.js"></script>
+  <script>
+    // 初始化公共UI
+    initCommonUI({
+      activePage: 'home',
+      pageTitle: '平台概览',
+      breadcrumbs: [{ label: '🏠 首页' }],
+    });
+
+    // 渲染热门知识列表
+    const hotList = document.getElementById('hot-knowledge-list');
+    const hotKnowledge = [...HOT_KNOWLEDGE].slice(0, 10);
+
+    hotKnowledge.forEach((k, index) => {
+      const rankColors = ['#f59e0b', '#94a3b8', '#b45309'];
+      const rankColor = index < 3 ? rankColors[index] : '#94a3b8';
+      const item = document.createElement('div');
+      item.style.cssText = `
+        display: flex; align-items: flex-start; gap: 14px;
+        padding: 14px 0; border-bottom: 1px solid #f1f5f9;
+        cursor: pointer; transition: all 0.2s;
+      `;
+      item.onmouseover = () => item.style.background = '#f8fafc';
+      item.onmouseout = () => item.style.background = '';
+      item.onclick = () => window.location.href = `knowledge-detail.html?id=${k.id}`;
+
+      const typeIcons = { doc: '📄', image: '🖼️', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
+
+      item.innerHTML = `
+        <div style="
+          width: 28px; height: 28px; border-radius: 8px;
+          background: linear-gradient(135deg, ${rankColor}20, ${rankColor}40);
+          color: ${rankColor}; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; font-size: 13px; flex-shrink: 0;
+        ">${index + 1}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:11px;">${typeIcons[k.type] || '📄'}</span>
+            <span style="font-size:14px;font-weight:600;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k.title}</span>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;">${k.summary || ''}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            ${(k.tags || []).slice(0, 2).map(t => `<span class="tag tag-blue">${t}</span>`).join('')}
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;margin-top:6px;font-size:12px;color:#94a3b8;">
+            <span>👤 ${k.author}</span>
+            <span>👁 ${formatCount(k.viewCount)}</span>
+            <span>❤️ ${formatCount(k.likeCount)}</span>
+            <span>💬 ${k.commentCount}</span>
+          </div>
+        </div>
+      `;
+      hotList.appendChild(item);
+    });
+
+    // 渲染最新知识时间线
+    const timelineEl = document.getElementById('latest-timeline');
+    const latestList = LATEST_KNOWLEDGE.slice(0, 10);
+    const timeline = document.createElement('ul');
+    timeline.className = 'timeline';
+
+    latestList.forEach(k => {
+      const li = document.createElement('li');
+      li.className = 'timeline-item';
+      li.style.cursor = 'pointer';
+      li.onclick = () => window.location.href = `knowledge-detail.html?id=${k.id}`;
+      li.innerHTML = `
+        <div class="timeline-dot"></div>
+        <div class="timeline-time">${formatTime(k.publishTime)}</div>
+        <div class="timeline-title">${k.title}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">👤 ${k.author} · ${k.category.split('>').pop().trim()}</div>
+      `;
+      timeline.appendChild(li);
+    });
+
+    timelineEl.appendChild(timeline);
+  </script>
+
+  <!-- 预览控制条 -->
+  <div class="preview-controls">
+    <a href="knowledge-browse.html" class="ctrl-btn" title="知识库浏览">📚</a>
+    <a href="knowledge-create.html" class="ctrl-btn" title="创建知识">✏️</a>
+    <a href="model-config.html" class="ctrl-btn" title="模型配置">🤖</a>
+    <button class="ctrl-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">⬆</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识库浏览 - 知行 KnowDo</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="header" id="app-header"></header>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div class="breadcrumb" id="page-breadcrumb">
+          <a href="index.html">🏠 首页</a>
+          <span class="separator">›</span>
+          <span>📚 知识库</span>
+        </div>
+        <h1 class="page-title" id="page-title" style="margin-bottom:4px;">知识库浏览</h1>
+        <p class="page-subtitle">按分类浏览知识，支持多维度筛选和排序</p>
+      </div>
+      <a href="knowledge-create.html" class="btn btn-primary btn-lg" style="flex-shrink:0;margin-top:8px;">
+        ✏️ 创建知识
+      </a>
+    </div>
+
+    <!-- 分类树 + 内容 两栏布局 -->
+    <div class="layout-with-sidebar">
+      <!-- 左侧分类树（可管理） -->
+      <div class="layout-left-panel">
+        <div class="card" style="position:sticky;top:68px;">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="card-title">📂 知识分类</span>
+            <button class="btn btn-ghost btn-sm" onclick="showCategoryManage()" title="管理分类" style="font-size:12px;padding:2px 8px;">⚙️ 管理</button>
+          </div>
+          <div class="card-body" style="max-height:calc(100vh - 200px);overflow-y:auto;padding:8px 0;" id="category-tree">
+            <!-- 由JS动态渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧内容区 -->
+      <div class="layout-right-panel">
+        <!-- 筛选栏 -->
+        <div class="card mb-lg">
+          <div class="card-body" style="padding:14px 20px;">
+            <!-- 搜索框 -->
+            <div style="position:relative;margin-bottom:12px;">
+              <input type="text" class="form-input" id="search-input" placeholder="搜索知识标题、内容、标签、作者..." style="padding-right:40px;" oninput="applyFilters()">
+              <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:16px;pointer-events:none;">🔍</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;" id="filter-bar">
+              <!-- 类型筛选 -->
+              <select class="form-select" style="width:140px;" id="filter-type">
+                <option value="all">全部类型</option>
+                <option value="doc">📄 文档类</option>
+                <option value="image">🖼️ 图片类</option>
+                <option value="video">🎬 视频类</option>
+                <option value="link">🔗 链接类</option>
+                <option value="qa">❓ 问答类</option>
+              </select>
+              <!-- 标签筛选 -->
+              <select class="form-select" style="width:160px;" id="filter-tag">
+                <option value="all">全部标签</option>
+              </select>
+              <!-- 时间范围 -->
+              <select class="form-select" style="width:140px;" id="filter-time">
+                <option value="all">全部时间</option>
+                <option value="week">最近一周</option>
+                <option value="month">最近一月</option>
+                <option value="quarter">最近三月</option>
+                <option value="year">最近一年</option>
+              </select>
+              <!-- 排序方式 -->
+              <select class="form-select" style="width:150px;" id="sort-by">
+                <option value="default">综合排序</option>
+                <option value="latest">最新发布</option>
+                <option value="hot">最多浏览</option>
+                <option value="likes">最多点赞</option>
+              </select>
+              <!-- 视图切换 -->
+              <div style="margin-left:auto;display:flex;gap:4px;">
+                <button class="btn btn-ghost btn-icon active" data-view="grid" onclick="switchView('grid', this)" title="网格视图">▦</button>
+                <button class="btn btn-ghost btn-icon" data-view="list" onclick="switchView('list', this)" title="列表视图">≡</button>
+              </div>
+            </div>
+            <!-- 当前筛选条件 -->
+            <div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:#64748b;" id="active-filters">
+              <span id="active-category-breadcrumb"></span>
+              <span id="result-count"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 知识卡片列表 -->
+        <div id="knowledge-grid" class="grid-3">
+          <!-- 由JS动态渲染 -->
+        </div>
+
+        <!-- 空状态 -->
+        <div id="empty-state" class="empty-state card" style="display:none;">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">该分类下暂无知识</div>
+          <div class="empty-desc">试试切换到其他分类，或创建新知识</div>
+          <a href="knowledge-create.html" class="btn btn-primary">创建知识</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 悬停预览浮窗 -->
+    <div id="hover-preview" class="hover-preview" style="display:none;"></div>
+  </main>
+
+  <script src="js/common.js"></script>
+  <script>
+    // 初始化公共UI
+    initCommonUI({
+      activePage: 'browse',
+      pageTitle: '知识库浏览',
+      breadcrumbs: [
+        { label: '🏠 首页', link: 'index.html' },
+        { label: '📚 知识库' },
+      ],
+    });
+
+    // 当前状态
+    let currentCategoryId = null;
+    let currentView = 'grid';
+    let filteredKnowledge = [...KNOWLEDGE_LIST];
+
+    // 渲染分类树（带管理功能）
+    function renderCategoryTree() {
+      const container = document.getElementById('category-tree');
+      container.innerHTML = '';
+
+      // 全部知识入口
+      const allBtn = document.createElement('div');
+      allBtn.className = 'tree-node-label' + (currentCategoryId === null ? ' active' : '');
+      allBtn.style.fontWeight = '600';
+      allBtn.innerHTML = `<span class="tree-icon">📚</span> 全部知识 <span style="margin-left:auto;font-size:11px;color:#94a3b8;">${KNOWLEDGE_LIST.length}</span>`;
+      allBtn.addEventListener('click', () => {
+        currentCategoryId = null;
+        applyFilters();
+        renderCategoryTree();
+      });
+      container.appendChild(allBtn);
+
+      CATEGORY_TREE.forEach(cat => {
+        const node = createTreeNode(cat, 0);
+        container.appendChild(node);
+      });
+    }
+
+    function createTreeNode(node, level) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'tree-node';
+
+      const hasChildren = node.children && node.children.length > 0;
+      const isActive = currentCategoryId === node.id;
+      const knowledgeCount = countKnowledgeInCategory(node.id);
+
+      const label = document.createElement('div');
+      label.className = 'tree-node-label' + (isActive ? ' active' : '');
+      label.style.paddingLeft = (12 + level * 20) + 'px';
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.innerHTML = `
+        ${hasChildren ? '<span class="tree-arrow expanded" style="flex-shrink:0;">▶</span>' : '<span style="width:16px;flex-shrink:0;"></span>'}
+        <span class="tree-icon" style="flex-shrink:0;">${node.icon || '📁'}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${node.name}</span>
+        ${knowledgeCount > 0 ? `<span style="font-size:11px;color:#94a3b8;flex-shrink:0;margin-left:4px;">${knowledgeCount}</span>` : ''}
+        <span class="tree-node-more" style="flex-shrink:0;margin-left:4px;cursor:pointer;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:14px;color:#94a3b8;opacity:0;transition:opacity 0.15s;" title="更多操作">...</span>
+      `;
+
+      const moreBtn = label.querySelector('.tree-node-more');
+      label.addEventListener('mouseenter', () => { if (moreBtn) moreBtn.style.opacity = '1'; });
+      label.addEventListener('mouseleave', () => { if (moreBtn) moreBtn.style.opacity = '0'; });
+
+      label.addEventListener('click', (e) => {
+        // 如果点击的是 ... 按钮，弹出操作菜单
+        if (moreBtn && moreBtn.contains(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+          const rect = moreBtn.getBoundingClientRect();
+          showCategoryActionMenu(rect.left, rect.bottom + 4, node);
+          return;
+        }
+        if (hasChildren) {
+          const childrenEl = wrapper.querySelector('.tree-children');
+          const arrow = label.querySelector('.tree-arrow');
+          if (childrenEl) {
+            childrenEl.classList.toggle('collapsed');
+            arrow?.classList.toggle('expanded');
+          }
+        }
+        currentCategoryId = node.id;
+        applyFilters();
+        renderCategoryTree();
+      });
+
+      wrapper.appendChild(label);
+
+      if (hasChildren) {
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = 'tree-children';
+        node.children.forEach(child => {
+          childrenContainer.appendChild(createTreeNode(child, level + 1));
+        });
+        wrapper.appendChild(childrenContainer);
+      }
+
+      return wrapper;
+    }
+
+    // 统计分类下的知识数量
+    function countKnowledgeInCategory(catId) {
+      return KNOWLEDGE_LIST.filter(k => k.categoryId === catId || k.categoryId?.startsWith(catId + '-')).length;
+    }
+
+    // ... 按钮弹出操作菜单
+    let actionMenuEl = null;
+    function showCategoryActionMenu(x, y, node) {
+      if (actionMenuEl) actionMenuEl.remove();
+      const menu = document.createElement('div');
+      menu.className = 'context-menu';
+      menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;z-index:2000;`;
+      menu.innerHTML = `
+        <div class="context-menu-item" onclick="showAddSubCategory('${node.id}','${node.name}')">➕ 添加子分类</div>
+        <div class="context-menu-item" onclick="showEditCategory('${node.id}','${node.name}','${node.icon || ''}')">✏️ 编辑分类</div>
+        <div class="context-menu-item" onclick="showMoveCategory('${node.id}','${node.name}')">📁 移动到...</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" onclick="deleteCategory('${node.id}','${node.name}')">🗑 删除分类</div>
+      `;
+      document.body.appendChild(menu);
+      actionMenuEl = menu;
+
+      const closeMenu = (ev) => {
+        if (!menu.contains(ev.target)) {
+          menu.remove();
+          actionMenuEl = null;
+          document.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    }
+
+    function showCategoryManage() {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.style.display = 'flex';
+      overlay.style.zIndex = '1500';
+      overlay.innerHTML = `
+        <div class="modal modal-lg" style="max-width:640px;">
+          <div class="modal-header">
+            <span class="modal-title">⚙️ 分类管理</span>
+            <button class="modal-close">&times;</button>
+          </div>
+          <div class="modal-body" style="padding:20px;max-height:60vh;overflow-y:auto;">
+            <div style="margin-bottom:16px;display:flex;gap:8px;">
+              <input type="text" class="form-input" id="mgmt-new-cat" placeholder="输入新分类名称" style="flex:1;">
+              <button class="btn btn-primary btn-sm" onclick="addTopCategory()">➕ 添加一级分类</button>
+            </div>
+            <div style="font-size:13px;color:#64748b;margin-bottom:12px;">💡 点击分类旁的「...」按钮可添加子分类、编辑或删除</div>
+            <div id="mgmt-category-list"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost close-mgmt-btn">关闭</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const close = () => { overlay.remove(); };
+      overlay.querySelector('.modal-close').addEventListener('click', close);
+      overlay.querySelector('.close-mgmt-btn').addEventListener('click', close);
+      overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+
+      renderMgmtCategoryList();
+    }
+
+    function renderMgmtCategoryList() {
+      const container = document.getElementById('mgmt-category-list');
+      if (!container) return;
+      container.innerHTML = '';
+      CATEGORY_TREE.forEach(cat => {
+        container.appendChild(createMgmtNode(cat, 0));
+      });
+    }
+
+    function createMgmtNode(node, level) {
+      const div = document.createElement('div');
+      div.style.cssText = `display:flex;align-items:center;padding:8px 12px;padding-left:${12+level*24}px;border-bottom:1px solid #f1f5f9;gap:8px;`;
+      div.innerHTML = `
+        <span>${node.icon || '📁'}</span>
+        <span style="flex:1;font-size:14px;">${node.name}</span>
+        <span style="font-size:11px;color:#94a3b8;">${countKnowledgeInCategory(node.id)}条</span>
+        <button class="btn btn-ghost btn-sm" onclick="showAddSubCategoryMgmt('${node.id}','${node.name}')" title="添加子分类">➕</button>
+        <button class="btn btn-ghost btn-sm" onclick="showEditCategoryMgmt('${node.id}','${node.name}','${node.icon||''}')" title="编辑">✏️</button>
+        <button class="btn btn-ghost btn-sm" style="color:#ef4444;" onclick="deleteCategoryMgmt('${node.id}','${node.name}')" title="删除">🗑</button>
+      `;
+      if (node.children) {
+        node.children.forEach(child => {
+          div.appendChild(createMgmtNode(child, level + 1));
+        });
+      }
+      return div;
+    }
+
+    function addTopCategory() {
+      const input = document.getElementById('mgmt-new-cat');
+      const name = input.value.trim();
+      if (!name) { showToast('请输入分类名称', 'warning'); return; }
+      CATEGORY_TREE.push({ id: 'cat-' + Date.now(), name, icon: '📁', children: [] });
+      input.value = '';
+      renderMgmtCategoryList();
+      renderCategoryTree();
+      showToast(`分类「${name}」已添加`, 'success');
+    }
+
+    function showAddSubCategory(parentId, parentName) {
+      if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+      const name = prompt(`为「${parentName}」添加子分类：`);
+      if (!name || !name.trim()) return;
+      addSubCategoryById(CATEGORY_TREE, parentId, name.trim());
+      renderCategoryTree();
+      showToast(`子分类「${name}」已添加`, 'success');
+    }
+
+    function showAddSubCategoryMgmt(parentId, parentName) {
+      const name = prompt(`为「${parentName}」添加子分类：`);
+      if (!name || !name.trim()) return;
+      addSubCategoryById(CATEGORY_TREE, parentId, name.trim());
+      renderMgmtCategoryList();
+      renderCategoryTree();
+      showToast(`子分类「${name}」已添加`, 'success');
+    }
+
+    function addSubCategoryById(nodes, parentId, name) {
+      for (const node of nodes) {
+        if (node.id === parentId) {
+          if (!node.children) node.children = [];
+          node.children.push({ id: 'cat-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4), name, children: [] });
+          return true;
+        }
+        if (node.children && addSubCategoryById(node.children, parentId, name)) return true;
+      }
+      return false;
+    }
+
+    function showEditCategory(id, name, icon) {
+      if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+      const newName = prompt('编辑分类名称：', name);
+      if (!newName || !newName.trim()) return;
+      updateCategoryName(CATEGORY_TREE, id, newName.trim());
+      renderCategoryTree();
+      showToast('分类名称已更新', 'success');
+    }
+
+    function showEditCategoryMgmt(id, name, icon) {
+      const newName = prompt('编辑分类名称：', name);
+      if (!newName || !newName.trim()) return;
+      updateCategoryName(CATEGORY_TREE, id, newName.trim());
+      renderMgmtCategoryList();
+      renderCategoryTree();
+      showToast('分类名称已更新', 'success');
+    }
+
+    function updateCategoryName(nodes, id, newName) {
+      for (const node of nodes) {
+        if (node.id === id) { node.name = newName; return true; }
+        if (node.children && updateCategoryName(node.children, id, newName)) return true;
+      }
+      return false;
+    }
+
+    function showMoveCategory(id, name) {
+      if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+      showToast('移动分类功能：选择目标父分类（模拟）', 'info');
+    }
+
+    async function deleteCategory(id, name) {
+      if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+      const count = countKnowledgeInCategory(id);
+      const msg = count > 0
+        ? `分类「${name}」下有 ${count} 条知识，删除后这些知识将变为未分类。确认删除？`
+        : `确认删除分类「${name}」吗？`;
+      const confirmed = await showConfirm('删除分类', msg, 'danger');
+      if (confirmed) {
+        removeCategoryById(CATEGORY_TREE, id);
+        if (currentCategoryId === id) currentCategoryId = null;
+        renderCategoryTree();
+        applyFilters();
+        showToast(`分类「${name}」已删除`, 'success');
+      }
+    }
+
+    async function deleteCategoryMgmt(id, name) {
+      const count = countKnowledgeInCategory(id);
+      const msg = count > 0
+        ? `分类「${name}」下有 ${count} 条知识，删除后这些知识将变为未分类。确认删除？`
+        : `确认删除分类「${name}」吗？`;
+      const confirmed = await showConfirm('删除分类', msg, 'danger');
+      if (confirmed) {
+        removeCategoryById(CATEGORY_TREE, id);
+        if (currentCategoryId === id) currentCategoryId = null;
+        renderMgmtCategoryList();
+        renderCategoryTree();
+        applyFilters();
+        showToast(`分类「${name}」已删除`, 'success');
+      }
+    }
+
+    function removeCategoryById(nodes, id) {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        if (nodes[i].id === id) { nodes.splice(i, 1); return true; }
+        if (nodes[i].children && removeCategoryById(nodes[i].children, id)) return true;
+      }
+      return false;
+    }
+
+    // 筛选
+    function applyFilters() {
+      const searchKeyword = document.getElementById('search-input').value.trim().toLowerCase();
+      const typeFilter = document.getElementById('filter-type').value;
+      const tagFilter = document.getElementById('filter-tag').value;
+      const timeFilter = document.getElementById('filter-time').value;
+      const sortBy = document.getElementById('sort-by').value;
+
+      let result = [...KNOWLEDGE_LIST];
+
+      // 搜索关键词筛选
+      if (searchKeyword) {
+        result = result.filter(k => {
+          return (k.title || '').toLowerCase().includes(searchKeyword) ||
+            (k.summary || '').toLowerCase().includes(searchKeyword) ||
+            (k.content || '').toLowerCase().includes(searchKeyword) ||
+            (k.tags || []).some(t => t.toLowerCase().includes(searchKeyword)) ||
+            (k.author || '').toLowerCase().includes(searchKeyword) ||
+            (k.category || '').toLowerCase().includes(searchKeyword);
+        });
+      }
+
+      // 分类筛选
+      if (currentCategoryId) {
+        result = result.filter(k => {
+          return k.categoryId === currentCategoryId ||
+            k.categoryId?.startsWith(currentCategoryId);
+        });
+      }
+
+      // 类型筛选
+      if (typeFilter !== 'all') {
+        result = result.filter(k => k.type === typeFilter);
+      }
+
+      // 标签筛选
+      if (tagFilter !== 'all') {
+        result = result.filter(k => (k.tags || []).includes(tagFilter));
+      }
+
+      // 时间筛选
+      const now = new Date();
+      if (timeFilter === 'week') {
+        const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+        result = result.filter(k => new Date(k.publishTime) > weekAgo);
+      } else if (timeFilter === 'month') {
+        const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        result = result.filter(k => new Date(k.publishTime) > monthAgo);
+      } else if (timeFilter === 'quarter') {
+        const quarterAgo = new Date(now - 90 * 24 * 60 * 60 * 1000);
+        result = result.filter(k => new Date(k.publishTime) > quarterAgo);
+      } else if (timeFilter === 'year') {
+        const yearAgo = new Date(now - 365 * 24 * 60 * 60 * 1000);
+        result = result.filter(k => new Date(k.publishTime) > yearAgo);
+      }
+
+      // 排序
+      if (sortBy === 'latest') result.sort((a, b) => new Date(b.publishTime) - new Date(a.publishTime));
+      else if (sortBy === 'hot') result.sort((a, b) => b.viewCount - a.viewCount);
+      else if (sortBy === 'likes') result.sort((a, b) => b.likeCount - a.likeCount);
+      // default保持综合排序
+
+      filteredKnowledge = result;
+      renderKnowledgeGrid();
+      updateFilterInfo();
+    }
+
+    // 渲染知识网格
+    function renderKnowledgeGrid() {
+      const grid = document.getElementById('knowledge-grid');
+      const empty = document.getElementById('empty-state');
+
+      if (filteredKnowledge.length === 0) {
+        grid.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      grid.style.display = 'grid';
+      empty.style.display = 'none';
+
+      if (currentView === 'grid') {
+        grid.className = 'grid-3';
+      } else {
+        grid.className = '';
+      }
+
+      grid.innerHTML = filteredKnowledge.map(k => renderKnowledgeCard(k, !currentCategoryId)).join('');
+
+      // 绑定悬停预览
+      grid.querySelectorAll('.knowledge-card').forEach(card => {
+        card.addEventListener('mouseenter', (e) => {
+          const id = card.dataset.id;
+          const k = getKnowledgeById(id);
+          if (!k) return;
+
+          const preview = document.getElementById('hover-preview');
+          preview.innerHTML = `
+            <div class="preview-title">${k.title}</div>
+            <div class="preview-text">${(k.content || k.summary || '').substring(0, 200)}...</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:11px;color:#94a3b8;">
+              <span>👤 ${k.author}</span>
+              <span>👁 ${formatCount(k.viewCount)}</span>
+              <span>❤️ ${formatCount(k.likeCount)}</span>
+            </div>
+          `;
+          preview.style.display = 'block';
+          positionPreview(e, preview);
+        });
+
+        card.addEventListener('mousemove', (e) => {
+          const preview = document.getElementById('hover-preview');
+          positionPreview(e, preview);
+        });
+
+        card.addEventListener('mouseleave', () => {
+          document.getElementById('hover-preview').style.display = 'none';
+        });
+      });
+
+      // 重新绑定收藏/点赞
+      grid.querySelectorAll('.kc-stat').forEach(stat => {
+        stat.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const card = stat.closest('.knowledge-card');
+          const id = card.dataset.id;
+          if (stat.textContent.includes('♡') || stat.textContent.includes('❤')) {
+            toggleLike(id);
+            applyFilters();
+          } else if (stat.textContent.includes('☆') || stat.textContent.includes('⭐')) {
+            toggleFavorite(id);
+            applyFilters();
+          }
+        });
+      });
+    }
+
+    function positionPreview(e, preview) {
+      const rect = preview.getBoundingClientRect();
+      let left = e.clientX + 16;
+      let top = e.clientY - rect.height / 2;
+
+      if (left + rect.width > window.innerWidth - 20) {
+        left = e.clientX - rect.width - 16;
+      }
+      if (top < 70) top = 70;
+      if (top + rect.height > window.innerHeight - 20) top = window.innerHeight - rect.height - 20;
+
+      preview.style.left = left + 'px';
+      preview.style.top = top + 'px';
+    }
+
+    function updateFilterInfo() {
+      const breadcrumb = document.getElementById('active-category-breadcrumb');
+      const count = document.getElementById('result-count');
+      const searchKeyword = document.getElementById('search-input').value.trim();
+
+      if (searchKeyword) {
+        breadcrumb.textContent = '搜索: "' + searchKeyword + '"';
+      } else if (currentCategoryId) {
+        breadcrumb.textContent = '当前分类: ' + getCategoryPath(currentCategoryId);
+      } else {
+        breadcrumb.textContent = '全部分类';
+      }
+
+      count.textContent = `共 ${filteredKnowledge.length} 条结果`;
+    }
+
+    function getCategoryPath(catId) {
+      for (const cat1 of CATEGORY_TREE) {
+        for (const cat2 of (cat1.children || [])) {
+          for (const cat3 of (cat2.children || [])) {
+            if (cat3.id === catId) return `${cat1.name} > ${cat2.name} > ${cat3.name}`;
+          }
+          if (cat2.id === catId) return `${cat1.name} > ${cat2.name}`;
+        }
+        if (cat1.id === catId) return cat1.name;
+      }
+      return catId;
+    }
+
+    function switchView(view, btn) {
+      currentView = view;
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderKnowledgeGrid();
+    }
+
+    // 初始化标签筛选下拉
+    function initTagFilter() {
+      const select = document.getElementById('filter-tag');
+      TAG_LIBRARY.forEach(tag => {
+        const opt = document.createElement('option');
+        opt.value = tag.name;
+        opt.textContent = tag.name;
+        select.appendChild(opt);
+      });
+    }
+
+    // 事件监听
+    document.getElementById('filter-type').addEventListener('change', applyFilters);
+    document.getElementById('filter-tag').addEventListener('change', applyFilters);
+    document.getElementById('filter-time').addEventListener('change', applyFilters);
+    document.getElementById('sort-by').addEventListener('change', applyFilters);
+
+    // 初始化
+    renderCategoryTree();
+    initTagFilter();
+    applyFilters();
+  </script>
+</body>
+</html>

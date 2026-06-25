@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模型配置 - 知行 KnowDo</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="header" id="app-header"></header>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="breadcrumb" id="page-breadcrumb">
+        <a href="index.html">🏠 首页</a>
+        <span class="separator">›</span>
+        <span>🤖 模型配置</span>
+      </div>
+      <h1 class="page-title" id="page-title">模型管理</h1>
+      <p class="page-subtitle">管理LLM大语言模型、Embedding向量模型和Reranker精排模型的接入与配置</p>
+    </div>
+
+    <!-- 左侧供应商导航 + 右侧内容 两栏布局 -->
+    <div class="layout-with-sidebar">
+      <!-- 左侧：供应商筛选导航 -->
+      <div class="layout-left-panel">
+        <div class="card" style="position:sticky;top:68px;">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="card-title">🏢 供应商</span>
+          </div>
+          <div class="card-body" style="max-height:calc(100vh - 200px);overflow-y:auto;padding:8px 0;" id="provider-nav">
+            <!-- 由JS动态渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧内容区 -->
+      <div class="layout-right-panel">
+        <!-- 标签页切换 + 操作栏 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div class="tabs" id="model-tabs" style="margin-bottom:0;">
+            <button class="tab-item active" data-tab="llm" onclick="switchTab('llm', this)">
+              🧠 LLM 大语言模型 <span class="tag tag-blue" style="margin-left:4px;">4</span>
+            </button>
+            <button class="tab-item" data-tab="embedding" onclick="switchTab('embedding', this)">
+              📊 Embedding 向量模型 <span class="tag tag-green" style="margin-left:4px;">3</span>
+            </button>
+            <button class="tab-item" data-tab="reranker" onclick="switchTab('reranker', this)">
+              🎯 Reranker 精排模型 <span class="tag tag-purple" style="margin-left:4px;">2</span>
+            </button>
+          </div>
+          <button class="btn btn-primary" onclick="showAddModelForm()">➕ 添加模型</button>
+        </div>
+
+        <!-- 状态统计 -->
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div class="stat-mini-card">
+            <span class="stat-mini-label">全部模型</span>
+            <span class="stat-mini-value" id="model-total">4</span>
+          </div>
+          <div class="stat-mini-card" style="border-left:3px solid #10b981;">
+            <span class="stat-mini-label">在线</span>
+            <span class="stat-mini-value" style="color:#10b981;" id="online-count">3</span>
+          </div>
+          <div class="stat-mini-card" style="border-left:3px solid #94a3b8;">
+            <span class="stat-mini-label">离线</span>
+            <span class="stat-mini-value" style="color:#94a3b8;" id="offline-count">1</span>
+          </div>
+        </div>
+
+        <!-- 模型列表表格 -->
+        <div class="card">
+          <div class="table-wrapper">
+            <table id="model-table">
+              <thead>
+                <tr>
+                  <th>模型名称</th>
+                  <th>供应商</th>
+                  <th>模型标识</th>
+                  <th>API 地址</th>
+                  <th>状态</th>
+                  <th>最大Token</th>
+                  <th>并发限制</th>
+                  <th>最后测试</th>
+                  <th style="width:160px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="model-table-body">
+                <!-- 由JS动态渲染 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div id="empty-state" class="empty-state card" style="display:none;">
+          <div class="empty-icon">🤖</div>
+          <div class="empty-title">暂无模型</div>
+          <div class="empty-desc">点击"添加模型"按钮接入第一个模型</div>
+          <button class="btn btn-primary" onclick="showAddModelForm()">➕ 添加模型</button>
+        </div>
+
+        <!-- 向量化策略配置 -->
+        <div style="margin-top:32px;">
+          <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;">⚙️ 向量化策略配置</h2>
+          <div class="card">
+            <div class="card-body" style="padding:24px;">
+              <div class="form-section">
+                <div class="form-section-title">📐 分块策略</div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">分块方式</label>
+                    <select class="form-select">
+                      <option value="char" selected>按字数分块</option>
+                      <option value="paragraph">按段落分块</option>
+                      <option value="heading">按标题分块</option>
+                      <option value="semantic">语义分块</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">分块大小（字符）</label>
+                    <input type="number" class="form-input" value="500" min="100" max="4096" step="100">
+                    <div class="form-hint">建议 300-800 字符</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">重叠窗口（字符）</label>
+                    <input type="number" class="form-input" value="50" min="0" max="200" step="10">
+                    <div class="form-hint">相邻分块的重叠大小</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section" style="margin-top:24px;">
+                <div class="form-section-title">🔀 混合检索权重</div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">语义检索权重</label>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                      <input type="range" min="0" max="1" step="0.1" value="0.7" style="flex:1;" id="semantic-weight" oninput="document.getElementById('semantic-weight-val').textContent=this.value;document.getElementById('keyword-weight-val').textContent=(1-parseFloat(this.value)).toFixed(1)">
+                      <span style="font-weight:600;min-width:24px;" id="semantic-weight-val">0.7</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">关键词检索权重</label>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                      <input type="range" min="0" max="1" step="0.1" value="0.3" style="flex:1;" disabled>
+                      <span style="font-weight:600;min-width:24px;" id="keyword-weight-val">0.3</span>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Reranker 精排</label>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+                      <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="switch-slider"></span>
+                      </label>
+                      <span style="font-size:13px;color:#64748b;">启用后检索结果将二次精排</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="text-align:right;margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                <button class="btn btn-primary" onclick="showToast('向量化策略已保存', 'success')">💾 保存策略配置</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 添加/编辑模型弹窗（通过 showModal 动态生成） -->
+  <script src="js/common.js"></script>
+  <script>
+    let currentTab = 'llm';
+    let selectedProvider = null; // 选中的供应商筛选
+
+    // 初始化
+    initCommonUI({
+      activePage: 'model',
+      breadcrumbs: [
+        { label: '🏠 首页', link: 'index.html' },
+        { label: '🤖 模型配置' },
+      ],
+    });
+
+    // 获取所有供应商列表
+    function getAllProviders() {
+      const providers = new Set();
+      Object.values(MODEL_LIST).forEach(models => {
+        models.forEach(m => providers.add(m.provider));
+      });
+      return Array.from(providers).sort();
+    }
+
+    // 渲染左侧供应商导航
+    function renderProviderNav() {
+      const container = document.getElementById('provider-nav');
+      const providers = getAllProviders();
+      const currentModels = MODEL_LIST[currentTab] || [];
+      const allCount = currentModels.length;
+
+      container.innerHTML = '';
+
+      // 全部模型
+      const allBtn = document.createElement('div');
+      allBtn.className = 'tree-node-label' + (selectedProvider === null ? ' active' : '');
+      allBtn.style.fontWeight = '600';
+      allBtn.innerHTML = `<span class="tree-icon">🤖</span> 全部模型 <span style="margin-left:auto;font-size:11px;color:#94a3b8;">${allCount}</span>`;
+      allBtn.addEventListener('click', () => {
+        selectedProvider = null;
+        renderProviderNav();
+        renderModelTable();
+      });
+      container.appendChild(allBtn);
+
+      // 各供应商
+      providers.forEach(provider => {
+        const count = currentModels.filter(m => m.provider === provider).length;
+        const item = document.createElement('div');
+        item.className = 'tree-node-label' + (selectedProvider === provider ? ' active' : '');
+        item.innerHTML = `
+          <span class="tree-icon">🏢</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${provider}</span>
+          <span style="font-size:11px;color:#94a3b8;flex-shrink:0;">${count}</span>
+        `;
+        item.addEventListener('click', () => {
+          selectedProvider = provider;
+          renderProviderNav();
+          renderModelTable();
+        });
+        container.appendChild(item);
+      });
+    }
+
+    // 标签页切换
+    function switchTab(tab, btn) {
+      currentTab = tab;
+      selectedProvider = null;
+      document.querySelectorAll('.tab-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderProviderNav();
+      renderModelTable();
+    }
+
+    // 渲染模型表格
+    function renderModelTable() {
+      const tbody = document.getElementById('model-table-body');
+      const empty = document.getElementById('empty-state');
+      const table = document.getElementById('model-table');
+
+      let models = MODEL_LIST[currentTab] || [];
+
+      // 供应商筛选
+      if (selectedProvider) {
+        models = models.filter(m => m.provider === selectedProvider);
+      }
+
+      if (models.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        empty.querySelector('.empty-desc').textContent = selectedProvider
+          ? `供应商「${selectedProvider}」下暂无${currentTab === 'llm' ? 'LLM' : currentTab === 'embedding' ? 'Embedding' : 'Reranker'}模型`
+          : '点击"添加模型"按钮接入第一个模型';
+        document.getElementById('model-total').textContent = '0';
+        document.getElementById('online-count').textContent = '0';
+        document.getElementById('offline-count').textContent = '0';
+        return;
+      }
+
+      table.style.display = '';
+      empty.style.display = 'none';
+
+      tbody.innerHTML = models.map(m => `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:16px;">${getModelIcon(m.type)}</span>
+              <span style="font-weight:600;">${m.name}</span>
+            </div>
+          </td>
+          <td><span class="tag tag-gray">${m.provider}</span></td>
+          <td style="font-family:var(--font-mono);font-size:12px;">${m.modelName}</td>
+          <td style="font-family:var(--font-mono);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.apiUrl}">${m.apiUrl}</td>
+          <td>
+            ${m.status === 'online' ? `
+              <span class="status-badge status-online"><span class="dot"></span>在线</span>
+            ` : `
+              <span class="status-badge status-offline"><span class="dot"></span>离线</span>
+            `}
+            ${m.testResult && m.testResult.latency ? `<span style="font-size:11px;color:#94a3b8;margin-left:4px;">${m.testResult.latency}</span>` : ''}
+          </td>
+          <td>${m.maxTokens.toLocaleString()}</td>
+          <td>${m.concurrency}</td>
+          <td style="font-size:12px;">${m.lastTest || '-'}</td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-ghost btn-sm" onclick="showEditModelForm('${m.id}', '${currentTab}')" title="编辑">✏️</button>
+              <button class="btn btn-outline btn-sm" onclick="testConnection('${m.id}', '${currentTab}')" title="测试连接">🔌</button>
+              <label class="switch" style="transform:scale(0.75);" title="${m.status === 'online' ? '禁用' : '启用'}">
+                <input type="checkbox" ${m.status === 'online' ? 'checked' : ''} onchange="toggleModel('${m.id}', '${currentTab}', this)">
+                <span class="switch-slider"></span>
+              </label>
+              <button class="btn btn-ghost btn-sm" style="color:#ef4444;" onclick="deleteModel('${m.id}', '${currentTab}')" title="删除">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      // 更新统计
+      const allModels = MODEL_LIST[currentTab] || [];
+      const filteredModels = selectedProvider ? allModels.filter(m => m.provider === selectedProvider) : allModels;
+      const onlineCount = filteredModels.filter(m => m.status === 'online').length;
+      document.getElementById('model-total').textContent = filteredModels.length;
+      document.getElementById('online-count').textContent = onlineCount;
+      document.getElementById('offline-count').textContent = filteredModels.length - onlineCount;
+    }
+
+    function getModelIcon(type) {
+      const icons = { LLM: '🧠', Embedding: '📊', Reranker: '🎯' };
+      return icons[type] || '🤖';
+    }
+
+    // 测试连接
+    function testConnection(modelId, tab) {
+      const models = MODEL_LIST[tab] || [];
+      const model = models.find(m => m.id === modelId);
+      if (!model) return;
+
+      showToast(`🔌 正在测试 ${model.name} 连接...`, 'info', 2000);
+
+      setTimeout(() => {
+        const success = Math.random() > 0.2;
+        if (success) {
+          const latency = Math.floor(Math.random() * 400 + 50);
+          model.status = 'online';
+          model.lastTest = new Date().toLocaleString('zh-CN');
+          model.testResult = { success: true, latency: latency + 'ms' };
+          showToast(`✅ 连接成功！响应时间: ${latency}ms`, 'success');
+        } else {
+          model.status = 'offline';
+          model.lastTest = new Date().toLocaleString('zh-CN');
+          model.testResult = { success: false, latency: '-', error: '连接超时' };
+          showToast('❌ 连接失败：连接超时，请检查API地址和密钥', 'error');
+        }
+        renderModelTable();
+        renderProviderNav();
+      }, 1500);
+    }
+
+    // 启用/禁用
+    function toggleModel(modelId, tab, checkbox) {
+      const models = MODEL_LIST[tab] || [];
+      const model = models.find(m => m.id === modelId);
+      if (!model) return;
+
+      model.status = checkbox.checked ? 'online' : 'offline';
+      showToast(`${model.name} 已${checkbox.checked ? '启用' : '禁用'}`, 'success');
+      renderModelTable();
+      renderProviderNav();
+    }
+
+    // 删除
+    async function deleteModel(modelId, tab) {
+      const models = MODEL_LIST[tab] || [];
+      const model = models.find(m => m.id === modelId);
+      if (!model) return;
+
+      const confirmed = await showConfirm('删除模型', `确认删除模型「${model.name}」吗？此操作不可撤销。`, 'danger');
+      if (confirmed) {
+        MODEL_LIST[tab] = models.filter(m => m.id !== modelId);
+        showToast(`模型「${model.name}」已删除`, 'success');
+        renderModelTable();
+        renderProviderNav();
+      }
+    }
+
+    // 添加模型
+    function showAddModelForm() {
+      showModelForm(null, currentTab);
+    }
+
+    function showEditModelForm(modelId, tab) {
+      const models = MODEL_LIST[tab] || [];
+      const model = models.find(m => m.id === modelId);
+      if (model) showModelForm(model, tab);
+    }
+
+    function showModelForm(model, tab) {
+      const isEdit = !!model;
+      const title = isEdit ? '编辑模型配置' : '接入新模型';
+      const typeLabel = { llm: 'LLM 大语言模型', embedding: 'Embedding 向量模型', reranker: 'Reranker 精排模型' }[tab];
+
+      const modal = showModal({
+        title: `${isEdit ? '✏️' : '➕'} ${title} - ${typeLabel}`,
+        size: 'lg',
+        content: `
+          <form id="model-form" onsubmit="return false;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">模型名称 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="mf-name" value="${model ? model.name : ''}" placeholder="如：GPT-4 Turbo、bge-large-zh">
+              </div>
+              <div class="form-group">
+                <label class="form-label">供应商 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="mf-provider" value="${model ? model.provider : ''}" placeholder="如：OpenAI、DeepSeek、BAAI">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">模型类型</label>
+                <select class="form-select" id="mf-type">
+                  <option value="LLM" ${model && model.type === 'LLM' ? 'selected' : ''}>LLM 大语言模型</option>
+                  <option value="Embedding" ${model && model.type === 'Embedding' ? 'selected' : ''}>Embedding 向量模型</option>
+                  <option value="Reranker" ${model && model.type === 'Reranker' ? 'selected' : ''}>Reranker 精排模型</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">模型标识 <span class="required">*</span></label>
+                <input type="text" class="form-input" id="mf-model-name" value="${model ? model.modelName : ''}" placeholder="如：gpt-4-turbo、bge-large-zh-v1.5">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">API 地址 <span class="required">*</span></label>
+              <input type="text" class="form-input" id="mf-api-url" value="${model ? model.apiUrl : ''}" placeholder="https://api.openai.com/v1 或 http://localhost:8080/v1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">API 密钥 <span class="required">*</span></label>
+              <div style="display:flex;gap:8px;">
+                <input type="password" class="form-input" id="mf-api-key" value="${model ? '••••••••••••••••' : ''}" placeholder="输入API密钥">
+                <button type="button" class="btn btn-ghost btn-icon" onclick="togglePassword()" title="显示/隐藏">👁</button>
+              </div>
+              <div class="form-hint">密钥将加密存储，仅用于API调用认证</div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">最大 Token</label>
+                <input type="number" class="form-input" id="mf-max-tokens" value="${model ? model.maxTokens : '32000'}" min="512" step="1000">
+              </div>
+              <div class="form-group">
+                <label class="form-label">并发限制</label>
+                <input type="number" class="form-input" id="mf-concurrency" value="${model ? model.concurrency : '30'}" min="1" max="500">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">超时时间（秒）</label>
+                <input type="number" class="form-input" id="mf-timeout" value="${model ? model.timeout : '30'}" min="5" max="300">
+              </div>
+              <div class="form-group">
+                <label class="form-label">重试次数</label>
+                <input type="number" class="form-input" id="mf-retry" value="${model ? model.retry : '3'}" min="0" max="10">
+              </div>
+            </div>
+            <div id="test-result-area" style="margin-top:12px;padding:10px;border-radius:8px;display:none;"></div>
+          </form>
+        `,
+        footer: `
+          <button class="btn btn-ghost close-modal-btn">取消</button>
+          <button class="btn btn-outline test-btn">🔌 测试连接</button>
+          <button class="btn btn-primary save-btn">${isEdit ? '保存修改' : '接入模型'}</button>
+        `,
+      });
+
+      // 保存
+      modal.overlay.querySelector('.save-btn').addEventListener('click', () => {
+        const name = document.getElementById('mf-name').value.trim();
+        const modelName = document.getElementById('mf-model-name').value.trim();
+        const apiUrl = document.getElementById('mf-api-url').value.trim();
+        if (!name || !modelName || !apiUrl) {
+          showToast('请填写必填项（模型名称、模型标识、API地址）', 'warning');
+          return;
+        }
+        const data = {
+          id: model ? model.id : 'm-' + Date.now(),
+          name,
+          provider: document.getElementById('mf-provider').value || '-',
+          type: document.getElementById('mf-type').value,
+          apiUrl,
+          modelName,
+          maxTokens: parseInt(document.getElementById('mf-max-tokens').value) || 32000,
+          concurrency: parseInt(document.getElementById('mf-concurrency').value) || 30,
+          timeout: parseInt(document.getElementById('mf-timeout').value) || 30,
+          retry: parseInt(document.getElementById('mf-retry').value) || 3,
+          status: model ? model.status : 'online',
+          lastTest: model ? model.lastTest : '-',
+          testResult: model ? model.testResult : null,
+        };
+
+        if (model) {
+          const idx = MODEL_LIST[tab].findIndex(m => m.id === model.id);
+          if (idx >= 0) MODEL_LIST[tab][idx] = data;
+        } else {
+          MODEL_LIST[tab].push(data);
+        }
+        modal.close();
+        showToast(isEdit ? '模型配置已更新' : '模型接入成功', 'success');
+        renderModelTable();
+        renderProviderNav();
+      });
+
+      // 测试连接按钮
+      modal.overlay.querySelector('.test-btn').addEventListener('click', () => {
+        const area = document.getElementById('test-result-area');
+        area.style.display = 'block';
+        area.style.background = '#fffbeb';
+        area.innerHTML = '<span style="font-size:13px;color:#b45309;">🔌 正在测试连接... <span class="loading-spinner" style="display:inline-block;vertical-align:middle;margin-left:8px;"></span></span>';
+
+        setTimeout(() => {
+          const success = Math.random() > 0.15;
+          if (success) {
+            const latency = Math.floor(Math.random() * 400 + 50);
+            area.style.background = '#ecfdf5';
+            area.innerHTML = `<span style="font-size:13px;color:#059669;">✅ 连接成功！响应时间: ${latency}ms</span>`;
+          } else {
+            area.style.background = '#fef2f2';
+            area.innerHTML = '<span style="font-size:13px;color:#dc2626;">❌ 连接失败：请检查API地址和密钥是否正确</span>';
+          }
+        }, 1500);
+      });
+
+      // 关闭
+      modal.overlay.querySelector('.close-modal-btn').addEventListener('click', () => modal.close());
+    }
+
+    function togglePassword() {
+      const input = document.getElementById('mf-api-key');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    // 初始渲染
+    renderProviderNav();
+    renderModelTable();
+  </script>
+</body>
+</html>

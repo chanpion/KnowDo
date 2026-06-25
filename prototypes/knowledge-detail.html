@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识详情 - 知行 KnowDo</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="header" id="app-header"></header>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <div class="page-header">
+      <div class="breadcrumb" id="page-breadcrumb">
+        <a href="index.html">🏠 首页</a>
+        <span class="separator">›</span>
+        <a href="knowledge-browse.html">📚 知识库</a>
+        <span class="separator">›</span>
+        <span>📄 详情</span>
+      </div>
+      <h1 class="page-title" id="page-title">知识详情</h1>
+    </div>
+
+    <!-- 两栏布局 -->
+    <div class="layout-with-sidebar">
+      <!-- 左侧主内容 -->
+      <div class="layout-main" id="detail-content">
+        <!-- 由JS动态渲染 -->
+      </div>
+
+      <!-- 右侧面板 -->
+      <div class="layout-sidebar" id="detail-sidebar">
+        <!-- 由JS动态渲染 -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast容器 -->
+  <div class="toast-container"></div>
+
+  <script src="js/common.js"></script>
+  <script>
+    // 获取URL参数
+    const knowledgeId = getUrlParam('id') || 'k-001';
+    const knowledge = getKnowledgeById(knowledgeId);
+
+    if (!knowledge) {
+      document.getElementById('detail-content').innerHTML = `
+        <div class="card" style="text-align:center;padding:48px;">
+          <div style="font-size:48px;margin-bottom:16px;">🔍</div>
+          <div style="font-size:18px;font-weight:600;color:#1e293b;margin-bottom:8px;">知识未找到</div>
+          <div style="font-size:14px;color:#94a3b8;margin-bottom:16px;">该知识可能已被删除或链接无效</div>
+          <a href="knowledge-browse.html" class="btn btn-primary">返回知识库</a>
+        </div>
+      `;
+    } else {
+      initCommonUI({
+        activePage: 'browse',
+        breadcrumbs: [
+          { label: '🏠 首页', link: 'index.html' },
+          { label: '📚 知识库', link: 'knowledge-browse.html' },
+          { label: '📄 详情' },
+        ],
+      });
+      document.getElementById('page-title').textContent = knowledge.title;
+      renderDetail();
+    }
+
+    function renderDetail() {
+      renderMainContent();
+      renderSidebar();
+    }
+
+    function renderMainContent() {
+      const container = document.getElementById('detail-content');
+      const typeIcons = { doc: '📄', image: '🖼️', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
+
+      // 状态
+      const statusMap = { published: '已发布', draft: '草稿', pending: '待审核', rejected: '已驳回', expired: '已过期' };
+      const statusClass = { published: 'status-published', draft: 'status-draft', pending: 'status-pending', rejected: 'status-rejected', expired: 'status-expired' };
+
+      container.innerHTML = `
+        <!-- 知识头部 -->
+        <div class="card mb-lg">
+          <div class="card-body" style="padding:24px;">
+            <div class="flex-between" style="margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:18px;">${typeIcons[knowledge.type] || '📄'}</span>
+                <span class="tag tag-blue">${knowledge.typeLabel || '文档'}</span>
+                <span class="status-badge ${statusClass[knowledge.status] || 'status-published'}">
+                  <span class="dot"></span>${statusMap[knowledge.status] || knowledge.status}
+                </span>
+                <span class="tag tag-gray">${knowledge.version || 'V1.0'}</span>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="window.location.href='knowledge-create.html?id=${knowledge.id}&edit=1'">✏️ 编辑</button>
+                <button class="btn btn-outline btn-sm" onclick="showToast('功能开发中', 'info')">📋 版本历史</button>
+              </div>
+            </div>
+
+            <h1 style="font-size:22px;font-weight:700;color:#1e293b;line-height:1.4;margin-bottom:12px;">${knowledge.title}</h1>
+
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px;color:#64748b;">
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">${knowledge.author.charAt(0)}</span>
+                ${knowledge.author}
+              </span>
+              <span>🏢 ${knowledge.authorDept}</span>
+              <span>📅 ${knowledge.publishTime}</span>
+              <span>👁 ${formatCount(knowledge.viewCount)} 次浏览</span>
+              <span>🌐 ${knowledge.publishScope || '全行可见'}</span>
+            </div>
+
+            <div style="margin-top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:12px;color:#94a3b8;">📂 ${knowledge.category}</span>
+              ${(knowledge.tags || []).map(t => `<span class="tag tag-blue">${t}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- AI摘要横幅 -->
+        <div class="ai-summary-banner">
+          <span class="ai-badge">🤖 AI 摘要</span>
+          <div class="ai-content">
+            <p style="margin:0;">${knowledge.summary || '暂无AI摘要'}</p>
+            <span style="font-size:11px;color:#94a3b8;margin-top:4px;display:block;">此摘要由 AI 自动生成，仅供参考</span>
+          </div>
+        </div>
+
+        <!-- 知识正文 -->
+        <div class="card mb-lg">
+          <div class="card-header">
+            <span class="card-title">📝 知识正文</span>
+          </div>
+          <div class="card-body" style="padding:24px;">
+            <div style="font-size:15px;line-height:1.8;color:#1e293b;max-width:800px;">
+              ${knowledge.content ? renderMarkdownContent(knowledge.content) : '<p style="color:#94a3b8;">暂无正文内容</p>'}
+            </div>
+          </div>
+        </div>
+
+        <!-- 附件列表 -->
+        ${knowledge.attachments && knowledge.attachments.length > 0 ? `
+        <div class="card mb-lg">
+          <div class="card-header">
+            <span class="card-title">📎 附件 (${knowledge.attachments.length})</span>
+          </div>
+          <div class="card-body">
+            <ul class="attachment-list">
+              ${knowledge.attachments.map(att => `
+                <li class="attachment-item">
+                  <div class="attachment-icon">📎</div>
+                  <div class="attachment-info">
+                    <div class="attachment-name">${att.name}</div>
+                    <div class="attachment-size">${att.size}</div>
+                  </div>
+                  <button class="btn btn-outline btn-sm" onclick="showToast('模拟下载: ${att.name}', 'success')">⬇ 下载</button>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- 有效期提示 -->
+        ${knowledge.validPeriod && knowledge.validPeriod !== '永久有效' ? `
+        <div style="padding:12px 16px;background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;margin-bottom:16px;font-size:13px;color:#b45309;">
+          ⏰ 有效期：${knowledge.validPeriod}
+        </div>
+        ` : ''}
+
+        <!-- 评论区 -->
+        <div class="card mb-lg">
+          <div class="card-header">
+            <span class="card-title">💬 评论 (${knowledge.commentCount || 0})</span>
+          </div>
+          <div class="card-body">
+            <!-- 评论输入 -->
+            <div style="display:flex;gap:12px;margin-bottom:20px;">
+              <div class="comment-avatar" style="width:40px;height:40px;">${MOCK_USER.avatar}</div>
+              <div style="flex:1;">
+                <textarea class="form-textarea" placeholder="写下你的评论... 支持 @提醒其他同事" style="min-height:80px;" id="comment-input"></textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                  <button class="btn btn-primary btn-sm" onclick="submitComment()">发表评论</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 评论列表 -->
+            <ul class="comment-list" id="comment-list">
+              ${(knowledge.comments || []).length === 0 ? `
+              <div style="text-align:center;padding:24px;color:#94a3b8;">
+                <div style="font-size:32px;margin-bottom:8px;">💬</div>
+                暂无评论，来说两句吧
+              </div>
+              ` : (knowledge.comments || []).map(c => renderComment(c)).join('')}
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMarkdownContent(content) {
+      // 简单的markdown渲染
+      let html = content
+        .replace(/^### (.+)$/gm, '<h4 style="font-size:16px;font-weight:600;margin:16px 0 8px;color:#1e293b;">$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3 style="font-size:18px;font-weight:600;margin:20px 0 10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:6px;">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 style="font-size:20px;font-weight:700;margin:24px 0 12px;color:#1e293b;">$1</h2>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/^- (.+)$/gm, '<li style="margin-left:20px;list-style:disc;">$1</li>')
+        .replace(/^> (.+)$/gm, '<blockquote style="border-left:3px solid #3b82f6;padding:8px 16px;margin:12px 0;background:#f8fafc;color:#64748b;font-style:italic;">$1</blockquote>')
+        .replace(/\n\n/g, '<br><br>');
+
+      return `<div>${html}</div>`;
+    }
+
+    function renderComment(comment) {
+      return `
+        <li class="comment-item ${comment.isAuthor ? 'author-comment' : ''}" ${comment.replyTo ? 'style="margin-left:40px;border-left:3px solid #bfdbfe;padding-left:16px;"' : ''}>
+          <div class="comment-avatar">${comment.author.charAt(0)}</div>
+          <div class="comment-body">
+            <div class="comment-header">
+              <span class="comment-author">${comment.author}</span>
+              ${comment.isAuthor ? '<span class="tag tag-blue" style="font-size:10px;">作者</span>' : ''}
+              <span class="comment-time">${comment.time}</span>
+            </div>
+            <div class="comment-text">${comment.content}</div>
+            <div class="comment-actions">
+              <a onclick="showToast('点赞成功', 'success')">👍 点赞</a>
+              <a onclick="document.getElementById('comment-input').focus();document.getElementById('comment-input').value='@${comment.author} ';">💬 回复</a>
+            </div>
+          </div>
+        </li>
+      `;
+    }
+
+    function renderSidebar() {
+      const container = document.getElementById('detail-sidebar');
+
+      container.innerHTML = `
+        <!-- 互动操作 -->
+        <div class="card mb-lg">
+          <div class="card-body" style="padding:16px;">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn btn-lg ${knowledge.isLiked ? 'btn-primary' : 'btn-outline'}" style="width:100%;" onclick="toggleLike('${knowledge.id}');refreshUI();">
+                ${knowledge.isLiked ? '❤️' : '🤍'} 点赞 ${formatCount(knowledge.likeCount)}
+              </button>
+              <button class="btn btn-lg ${knowledge.isFavorited ? '' : 'btn-outline'}" style="width:100%;background:${knowledge.isFavorited ? '#fef3c7' : ''};border-color:${knowledge.isFavorited ? '#f59e0b' : ''};color:${knowledge.isFavorited ? '#b45309' : ''};" onclick="toggleFavorite('${knowledge.id}');refreshUI();">
+                ${knowledge.isFavorited ? '⭐' : '☆'} 收藏 ${formatCount(knowledge.favoriteCount)}
+              </button>
+              <button class="btn btn-lg btn-outline" style="width:100%;" onclick="showShareModal()">🔗 分享</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;font-size:12px;color:#94a3b8;justify-content:center;">
+              <span>👁 ${formatCount(knowledge.viewCount)} 浏览</span>
+              <span>❤️ ${formatCount(knowledge.likeCount)} 点赞</span>
+              <span>⭐ ${formatCount(knowledge.favoriteCount)} 收藏</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 版本历史入口 -->
+        <div class="card mb-lg">
+          <div class="card-body" style="padding:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="showToast('版本历史功能开发中', 'info')">
+              <div>
+                <div style="font-size:14px;font-weight:600;">📜 版本历史</div>
+                <div style="font-size:12px;color:#94a3b8;">当前版本: ${knowledge.version}</div>
+              </div>
+              <span style="color:#94a3b8;">→</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 猜你喜欢 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">💡 猜你喜欢</span>
+          </div>
+          <div class="card-body" style="padding:12px;">
+            ${RECOMMENDED_KNOWLEDGE.map(rk => `
+              <div style="padding:10px;border-radius:8px;cursor:pointer;transition:all 0.2s;margin-bottom:4px;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <div style="font-size:13px;font-weight:500;color:#1e293b;line-height:1.4;margin-bottom:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${rk.title}</div>
+                <div style="font-size:11px;color:#94a3b8;">📂 ${rk.category} · 👁 ${formatCount(rk.viewCount)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function refreshUI() {
+      renderMainContent();
+      renderSidebar();
+    }
+
+    function submitComment() {
+      const input = document.getElementById('comment-input');
+      const text = input.value.trim();
+      if (!text) {
+        showToast('请输入评论内容', 'warning');
+        return;
+      }
+      knowledge.comments = knowledge.comments || [];
+      knowledge.comments.push({
+        id: 'cmt-new-' + Date.now(),
+        author: MOCK_USER.name,
+        authorDept: MOCK_USER.department,
+        content: text,
+        time: new Date().toLocaleString('zh-CN'),
+        isAuthor: MOCK_USER.name === knowledge.author,
+      });
+      knowledge.commentCount = (knowledge.commentCount || 0) + 1;
+      input.value = '';
+      refreshUI();
+      showToast('评论发表成功', 'success');
+    }
+
+    function showShareModal() {
+      const url = window.location.href;
+      showModal({
+        title: '📤 分享知识',
+        size: 'sm',
+        content: `
+          <div style="text-align:center;">
+            <p style="margin-bottom:16px;color:#64748b;">《${knowledge.title}》</p>
+            <div style="display:flex;justify-content:center;gap:16px;margin-bottom:20px;">
+              <button class="btn btn-outline" style="flex-direction:column;padding:16px;width:80px;height:80px;font-size:12px;" onclick="navigator.clipboard.writeText('${url}');showToast('链接已复制', 'success');">
+                <span style="font-size:24px;">🔗</span>复制链接
+              </button>
+              <button class="btn btn-outline" style="flex-direction:column;padding:16px;width:80px;height:80px;font-size:12px;" onclick="showToast('二维码功能开发中', 'info')">
+                <span style="font-size:24px;">📱</span>二维码
+              </button>
+              <button class="btn btn-outline" style="flex-direction:column;padding:16px;width:80px;height:80px;font-size:12px;" onclick="showToast('已发送至站内信', 'success')">
+                <span style="font-size:24px;">📧</span>站内信
+              </button>
+            </div>
+            <div style="background:#f8fafc;padding:12px;border-radius:8px;font-size:12px;color:#64748b;word-break:break-all;">${url}</div>
+          </div>
+        `,
+      });
+    }
+  </script>
+
+  <!-- 预览控制条 -->
+  <div class="preview-controls">
+    <a href="index.html" class="ctrl-btn" title="首页">🏠</a>
+    <a href="knowledge-browse.html" class="ctrl-btn" title="知识库">📚</a>
+    <a href="knowledge-create.html" class="ctrl-btn" title="创建知识">✏️</a>
+    <button class="ctrl-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">⬆</button>
+  </div>
+</body>
+</html>
