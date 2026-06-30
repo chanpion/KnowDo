@@ -1,27 +1,28 @@
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
 import { getHotKnowledge, getLatestKnowledge, formatCount, formatTime } from '@/mock/data';
-import type { Knowledge } from '@/types';
 
 const QUICK_ACTIONS = [
-  { key: 'create', label: '创建知识', desc: '编写新的知识文档', icon: '📝', color: 'blue', path: '/create' },
-  { key: 'browse', label: '浏览知识库', desc: '查阅所有知识内容', icon: '📚', color: 'green', path: '/browse' },
-  { key: 'review', label: '待审核', desc: '审核待发布的知识', icon: '✅', color: 'purple', path: '/browse?status=pending_review' },
-  { key: 'model', label: '模型配置', desc: '管理AI模型设置', icon: '🤖', color: 'orange', path: '/model' },
-];
-
-const STAT_CARDS = [
-  { key: 'total', label: '知识总量', icon: '📄', color: 'blue' as const, getValue: (list: Knowledge[]) => formatCount(list.length) },
-  { key: 'today', label: '今日新增', icon: '✨', color: 'green' as const, getValue: () => '12' },
-  { key: 'views', label: '今日浏览', icon: '👁', color: 'purple' as const, getValue: (list: Knowledge[]) => formatCount(list.reduce((s, k) => s + k.viewCount, 0)) },
-  { key: 'users', label: '活跃用户', icon: '👥', color: 'orange' as const, getValue: () => '1,286' },
+  { key: 'create-kb', label: '创建知识库', desc: '新建知识库容器', icon: '🗂️', color: 'blue', path: '/create' },
+  { key: 'create-article', label: '创建文章', desc: '编写知识文章', icon: '📝', color: 'green', path: '/create/article' },
+  { key: 'browse', label: '浏览知识库', desc: '查看所有知识库', icon: '📚', color: 'purple', path: '/browse' },
+  { key: 'review', label: '待审核', desc: '审核待发布的文章', icon: '✅', color: 'orange', path: '/review' },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { knowledgeList, toggleLike, toggleFavorite } = useAppStore();
+  const { knowledgeList, datasets, toggleLike, toggleFavorite } = useAppStore();
   const hotList = getHotKnowledge();
   const latestList = getLatestKnowledge();
+
+  const totalDocuments = datasets.reduce((sum, ds) => sum + ds.documents.length, 0);
+
+  const STAT_CARDS = [
+    { key: 'datasets', label: '知识库', icon: '🗂️', color: 'blue' as const, value: formatCount(datasets.length) },
+    { key: 'articles', label: '知识文章', icon: '📄', color: 'green' as const, value: formatCount(knowledgeList.length) },
+    { key: 'documents', label: '文档总量', icon: '📎', color: 'purple' as const, value: formatCount(totalDocuments) },
+    { key: 'views', label: '今日浏览', icon: '👁', color: 'orange' as const, value: formatCount(knowledgeList.reduce((s, k) => s + k.viewCount, 0)) },
+  ];
 
   return (
     <div className="page-container">
@@ -31,7 +32,7 @@ export default function Home() {
           <div key={card.key} className="stat-card">
             <div className={`stat-card-icon ${card.color}`}>{card.icon}</div>
             <div className="stat-card-info">
-              <div className="stat-value">{card.getValue(knowledgeList)}</div>
+              <div className="stat-value">{card.value}</div>
               <div className="stat-label">{card.label}</div>
             </div>
           </div>
@@ -60,7 +61,7 @@ export default function Home() {
         {/* 热门知识 Top10 */}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">🔥 热门知识 Top10</span>
+            <span className="panel-title">🔥 热门文章 Top10</span>
             <a href="#" className="panel-link" onClick={(e) => { e.preventDefault(); navigate('/browse'); }}>查看全部 →</a>
           </div>
           <div className="panel-body" style={{ padding: 0 }}>
@@ -73,7 +74,7 @@ export default function Home() {
                   cursor: 'pointer', transition: 'background 0.2s',
                 }}
                 className="hover:bg-gray-50"
-                onClick={() => navigate(`/detail/${item.id}`)}
+                onClick={() => navigate(`/article/${item.id}`)}
               >
                 <span style={{
                   width: 24, height: 24, borderRadius: 6,
@@ -105,7 +106,7 @@ export default function Home() {
           </div>
           <div className="panel-body">
             {latestList.map(item => (
-              <div key={item.id} className="timeline-item" style={{ cursor: 'pointer' }} onClick={() => navigate(`/detail/${item.id}`)}>
+              <div key={item.id} className="timeline-item" style={{ cursor: 'pointer' }} onClick={() => navigate(`/article/${item.id}`)}>
                 <div className="timeline-dot" />
                 <div className="timeline-content">
                   <div className="tl-title">{item.title}</div>

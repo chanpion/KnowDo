@@ -146,7 +146,7 @@ export default function FavoritesPage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16, padding: 16 }}>
               {favoritedKnowledge.map(item => (
-                <div key={item.id} className="knowledge-card" onClick={() => navigate(`/detail/${item.id}`)}>
+                <div key={item.id} className="knowledge-card" onClick={() => navigate(`/article/${item.id}`)}>
                   <span className={`kc-type-badge ${item.type}`}>
                     {TYPE_ICONS[item.type] || '📄'} {item.typeLabel}
                   </span>

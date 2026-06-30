@@ -7,7 +7,6 @@ import { EditOutlined, DeleteOutlined, StarOutlined, FileTextOutlined, CheckCirc
 const NAV_ITEMS = [
   { key: 'home', path: '/', label: '首页', icon: '🏠' },
   { key: 'browse', path: '/browse', label: '知识库', icon: '📚' },
-  { key: 'dataset', path: '/dataset', label: '数据集', icon: '🗂️' },
   { key: 'model', path: '/model', label: '模型管理', icon: '🤖' },
 ];
 
@@ -121,7 +120,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 主体内容 */}
       <div className="app-body">
-        {children}
+        <div className="app-content">
+          {children}
+        </div>
       </div>
     </div>
   );

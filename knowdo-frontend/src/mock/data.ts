@@ -1,4 +1,4 @@
-import type { User, CategoryNode, Tag, Knowledge, ModelConfig, RecommendedKnowledge, Notification, ReviewItem } from '@/types';
+import type { User, CategoryNode, Tag, Knowledge, ModelConfig, RecommendedKnowledge, Notification, ReviewItem, DatasetAuthorization, RelatedResource } from '@/types';
 
 // 用户信息
 export const MOCK_USER: User = {
@@ -136,6 +136,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { id: 'cmt-1', author: '李建国', authorDept: '信贷业务部', content: '非常实用的指引，建议在贷后管理部分补充一些实际案例。', time: '2026-06-21 10:30', isAuthor: false },
       { id: 'cmt-2', author: '张明远', authorDept: '风险管理部', content: '感谢建议！我们正在整理典型案例，下一版本会加入。', time: '2026-06-21 11:00', isAuthor: true, replyTo: 'cmt-1' },
     ],
+    datasetId: 'ds-001',
   },
   {
     id: 'k-002', title: '定期存款利率调整政策解读（2026年Q3）', type: 'doc', typeLabel: '文档',
@@ -151,6 +152,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { id: 'cmt-3', author: '赵强', authorDept: '个人金融部', content: '请问贵宾客户的专属利率是否同步调整？', time: '2026-06-19 14:00', isAuthor: false },
       { id: 'cmt-4', author: '王丽华', authorDept: '存款业务部', content: '贵宾客户专属利率将另行通知，预计下周发布。', time: '2026-06-19 15:30', isAuthor: true, replyTo: 'cmt-3' },
     ],
+    datasetId: 'ds-004',
   },
   {
     id: 'k-003', title: '新员工入职信息安全培训手册', type: 'doc', typeLabel: '文档',
@@ -166,6 +168,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { name: '信息安全承诺书.docx', size: '320 KB' },
     ],
     comments: [],
+    datasetId: 'ds-004',
   },
   {
     id: 'k-004', title: '外汇交易风险对冲策略案例分析', type: 'link', typeLabel: '链接',
@@ -177,6 +180,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     status: 'published', viewCount: 789, likeCount: 67, commentCount: 5, favoriteCount: 34,
     isLiked: false, isFavorited: false, publishScope: '部门可见', validPeriod: '永久有效',
     attachments: [], comments: [],
+    datasetId: 'ds-003',
   },
   {
     id: 'k-005', title: '信贷审批流程图（2026修订版）', type: 'image', typeLabel: '图片',
@@ -189,6 +193,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: true, isFavorited: true, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [{ name: '信贷审批流程图_v2.1.png', size: '1.8 MB' }],
     comments: [],
+    datasetId: 'ds-001',
   },
   {
     id: 'k-006', title: '信用评级模型参数调整说明与影响评估', type: 'doc', typeLabel: '文档',
@@ -201,6 +206,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '全行可见', validPeriod: '2026-06-15 ~ 2026-12-31',
     attachments: [{ name: '评级模型参数说明_v1.0.docx', size: '3.2 MB' }],
     comments: [],
+    datasetId: 'ds-002',
   },
   {
     id: 'k-007', title: '个人理财产品销售合规操作手册', type: 'doc', typeLabel: '文档',
@@ -213,6 +219,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [{ name: '理财产品合规手册_v2.0.pdf', size: '4.5 MB' }],
     comments: [],
+    datasetId: 'ds-004',
   },
   {
     id: 'k-008', title: '2026年Q2内部审计常见问题汇总', type: 'qa', typeLabel: '问答',
@@ -224,6 +231,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     status: 'published', viewCount: 2890, likeCount: 178, commentCount: 9, favoriteCount: 56,
     isLiked: false, isFavorited: true, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [], comments: [],
+    datasetId: 'ds-002',
   },
   {
     id: 'k-009', title: '新员工入职培训系列视频（全集）', type: 'video', typeLabel: '视频',
@@ -240,6 +248,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { name: '培训视频_第三集_岗位技能.mp4', size: '398 MB' },
     ],
     comments: [],
+    datasetId: 'ds-002',
   },
   {
     id: 'k-010', title: '跨境结算业务流程优化方案', type: 'doc', typeLabel: '文档',
@@ -252,6 +261,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '部门可见', validPeriod: '永久有效',
     attachments: [{ name: '跨境结算优化方案_v1.0.docx', size: '1.5 MB' }],
     comments: [],
+    datasetId: 'ds-003',
   },
 ];
 
@@ -339,11 +349,32 @@ export const VECTOR_MODELS = [
   { id: 'vm-4', name: 'm3e-large', provider: 'Moka', dimension: 1024, status: 'offline' as const },
 ];
 
-// 知识库文件夹树
+// 知识库文件夹树（三级嵌套）
 export const DATASET_FOLDERS = [
-  { id: 'ds-folder-1', name: '产品知识库', parentId: null },
-  { id: 'ds-folder-2', name: '操作手册', parentId: null },
-  { id: 'ds-folder-3', name: '合规文档', parentId: null },
+  {
+    id: 'ds-folder-1', name: '产品知识库', parentId: null, datasetCount: 2, children: [
+      { id: 'ds-folder-1-1', name: '信贷产品', parentId: 'ds-folder-1', datasetCount: 1, children: [
+        { id: 'ds-folder-1-1-1', name: '企业信贷', parentId: 'ds-folder-1-1', datasetCount: 1 },
+      ]},
+      { id: 'ds-folder-1-2', name: '存款产品', parentId: 'ds-folder-1', datasetCount: 0 },
+    ],
+  },
+  {
+    id: 'ds-folder-2', name: '操作手册', parentId: null, datasetCount: 0, children: [
+      { id: 'ds-folder-2-1', name: '系统操作', parentId: 'ds-folder-2', datasetCount: 0 },
+    ],
+  },
+  {
+    id: 'ds-folder-3', name: '合规文档', parentId: null, datasetCount: 2, children: [
+      { id: 'ds-folder-3-1', name: '反洗钱', parentId: 'ds-folder-3', datasetCount: 0, children: [
+        { id: 'ds-folder-3-1-1', name: '客户尽职调查', parentId: 'ds-folder-3-1', datasetCount: 0 },
+      ]},
+      { id: 'ds-folder-3-2', name: '数据安全', parentId: 'ds-folder-3', datasetCount: 0 },
+    ],
+  },
+  {
+    id: 'ds-folder-4', name: '飞书文档', parentId: null, datasetCount: 1,
+  },
 ];
 
 // 知识库列表
@@ -486,4 +517,73 @@ export const DATASETS = [
     documentCount: 2,
     charCount: 78,
   },
+  {
+    id: 'ds-005',
+    name: '飞书-客户服务手册',
+    description: '对接飞书云文档，导入客户服务相关流程文档',
+    type: 'feishu' as const,
+    vectorModel: 'bge-large-zh-v1.5',
+    feishuAppId: 'cli_a6f8e9d0c1b2',
+    feishuFolderToken: 'fldcnAbCdEfGhIjKlMnOp',
+    status: 'completed' as const,
+    documents: [
+      {
+        id: 'doc-007',
+        datasetId: 'ds-005',
+        name: '客户投诉处理流程',
+        size: '125 KB',
+        type: 'docx' as const,
+        status: 'completed' as const,
+        createdAt: '2026-06-24 10:00',
+        chunks: [
+          { id: 'chk-011', index: 1, content: '客户投诉处理流程：1. 受理投诉 - 客服人员接收并记录投诉信息；2. 初步核实 - 核实投诉内容是否属实；3. 分类转办 - 根据投诉类型转交相关部门；4. 处理反馈 - 相关部门处理并将结果反馈给客户。', length: 95, question: '客户投诉处理有哪几个步骤？' },
+        ],
+      },
+    ],
+    folderId: 'ds-folder-4',
+    createdAt: '2026-06-24 09:00',
+    updatedAt: '2026-06-24 10:00',
+    uploadRule: { maxFilesPerUpload: 50, maxFileSizeMB: 100 },
+    documentCount: 1,
+    charCount: 95,
+  },
+];
+
+// 资源授权数据
+export const DATASET_AUTHORIZATIONS: DatasetAuthorization[] = [
+  {
+    id: 'auth-001',
+    datasetId: 'ds-001',
+    targetType: 'user',
+    targetId: 'user-li',
+    targetName: '李建国',
+    permission: 'use',
+    authorizedAt: '2026-06-21 10:00',
+  },
+  {
+    id: 'auth-002',
+    datasetId: 'ds-001',
+    targetType: 'department',
+    targetId: 'dept-credit',
+    targetName: '信贷业务部',
+    permission: 'view',
+    authorizedAt: '2026-06-21 14:00',
+  },
+  {
+    id: 'auth-003',
+    datasetId: 'ds-002',
+    targetType: 'user',
+    targetId: 'user-liu',
+    targetName: '刘博文',
+    permission: 'maintain',
+    authorizedAt: '2026-06-19 09:00',
+  },
+];
+
+// 关联资源数据
+export const RELATED_RESOURCES: RelatedResource[] = [
+  { id: 'rel-001', type: 'agent', name: '信贷智能助手', relationType: 'references' },
+  { id: 'rel-002', type: 'agent', name: '合规问答机器人', relationType: 'references' },
+  { id: 'rel-003', type: 'model', name: 'bge-large-zh-v1.5', relationType: 'depends_on' },
+  { id: 'rel-004', type: 'model', name: 'text-embedding-3-large', relationType: 'depends_on' },
 ];

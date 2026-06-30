@@ -26,7 +26,7 @@ export default function DraftsPage() {
   };
 
   const handleContinue = (draft: DraftItem) => {
-    navigate(`/create?draft=${draft.id}`);
+    navigate(`/create/article?draft=${draft.id}`);
   };
 
   const formatDate = (iso: string) => {

@@ -115,6 +115,7 @@ export interface Knowledge {
   versions?: KnowledgeVersion[];
   deletedAt?: string;
   folderId?: string;
+  datasetId: string;
 }
 
 // 模型状态
@@ -201,20 +202,21 @@ export interface KnowledgeCreateForm {
   publishScope: string;
   validPeriod: string;
   attachments: File[];
+  datasetId: string;
 }
 
 // ============================================
 // 知识库（Dataset）相关类型
 // ============================================
 
-// 知识库类型（仅通用型和 Web 站点）
-export type DatasetType = 'general' | 'web';
+// 知识库类型
+export type DatasetType = 'general' | 'web' | 'feishu';
 
 // 知识库状态
 export type DatasetStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 // 文档分段策略模式
-export type ChunkMode = 'smart' | 'advanced';
+export type ChunkMode = 'smart' | 'advanced' | 'qa';
 
 // 文档分段策略
 export interface ChunkStrategy {
@@ -250,6 +252,49 @@ export interface DocumentChunk {
   content: string;
   length: number;
   question?: string;
+  answer?: string; // QA 模式下使用
+}
+
+// QA 问答对分段（用于 QA 模式）
+export interface QAChunkPair {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+// ============================================
+// 知识库（Dataset）扩展 - 权限/授权/规则
+// ============================================
+
+// 权限级别
+export type AuthPermission = 'view' | 'use' | 'maintain';
+
+// 资源授权
+export interface DatasetAuthorization {
+  id: string;
+  datasetId: string;
+  targetType: 'user' | 'department';
+  targetId: string;
+  targetName: string;
+  permission: AuthPermission;
+  authorizedAt: string;
+}
+
+// 上传规则
+export interface UploadRule {
+  maxFilesPerUpload: number;
+  maxFileSizeMB: number;
+}
+
+// 关联资源类型
+export type RelatedResourceType = 'agent' | 'model';
+
+// 关联资源
+export interface RelatedResource {
+  id: string;
+  type: RelatedResourceType;
+  name: string;
+  relationType: 'references' | 'depends_on';
 }
 
 // 知识库（一个知识库包含多个文档）
@@ -261,12 +306,15 @@ export interface Dataset {
   vectorModel: string;
   webUrl?: string;
   webSelector?: string;
+  feishuAppId?: string;       // 飞书知识库
+  feishuFolderToken?: string; // 飞书知识库
   status: DatasetStatus;
   documents: DatasetDocument[];
   folderId: string;
   createdAt: string;
   updatedAt: string;
   chunkStrategy?: ChunkStrategy;
+  uploadRule?: UploadRule;
   documentCount?: number;
   charCount?: number;
 }
@@ -280,10 +328,11 @@ export interface VectorModel {
   status: 'online' | 'offline';
 }
 
-// 知识库文件夹
+// 知识库文件夹（支持三级嵌套）
 export interface DatasetFolder {
   id: string;
   name: string;
   parentId: string | null;
+  datasetCount?: number;
   children?: DatasetFolder[];
 }

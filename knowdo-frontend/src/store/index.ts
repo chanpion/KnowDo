@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Knowledge, Notification, ModelConfig, CategoryNode, Tag, ReviewItem, Comment, KnowledgeVersion, FavoriteFolder, Dataset, DatasetDocument, DatasetFolder } from '@/types';
-import { MOCK_USER, KNOWLEDGE_LIST, NOTIFICATIONS, CATEGORY_TREE, MODEL_LIST, TAG_LIBRARY, REVIEW_QUEUE, DATASETS, DATASET_FOLDERS } from '@/mock/data';
+import type { Knowledge, Notification, ModelConfig, CategoryNode, Tag, ReviewItem, Comment, KnowledgeVersion, FavoriteFolder, Dataset, DatasetDocument, DatasetFolder, DatasetAuthorization, UploadRule, RelatedResource, QAChunkPair } from '@/types';
+import { MOCK_USER, KNOWLEDGE_LIST, NOTIFICATIONS, CATEGORY_TREE, MODEL_LIST, TAG_LIBRARY, REVIEW_QUEUE, DATASETS, DATASET_FOLDERS, DATASET_AUTHORIZATIONS, RELATED_RESOURCES } from '@/mock/data';
 
 interface AppState {
   // 用户
@@ -90,9 +90,14 @@ interface AppState {
   datasets: Dataset[];
   datasetFolders: DatasetFolder[];
   currentDatasetId: string | null;
+  datasetAuthorizations: DatasetAuthorization[];
+  relatedResources: RelatedResource[];
+
+  // 知识库内文章管理
+  getArticlesByDataset: (datasetId: string) => Knowledge[];
 
   // 知识库 CRUD
-  addDataset: (dataset: Omit<Dataset, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { documents?: DatasetDocument[] }) => void;
+  addDataset: (dataset: Omit<Dataset, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { documents?: DatasetDocument[] }) => string;
   updateDataset: (id: string, data: Partial<Dataset>) => void;
   deleteDataset: (id: string) => void;
 
@@ -108,6 +113,25 @@ interface AppState {
   exportDatasetAsExcel: (datasetId: string) => void;
   exportFullDataset: (datasetId: string) => void;
   setCurrentDataset: (id: string | null) => void;
+
+  // 文件夹管理（三级嵌套）
+  addFolder: (name: string, parentId: string | null) => void;
+  renameFolder: (id: string, name: string) => void;
+  deleteFolder: (id: string) => void;
+  moveFolder: (id: string, targetParentId: string | null) => void;
+
+  // 资源授权
+  authorizeDataset: (dataset: DatasetAuthorization) => void;
+  revokeAuthorization: (id: string) => void;
+
+  // 导入知识库
+  importDataset: (data: Omit<Dataset, 'id' | 'createdAt' | 'updatedAt'>) => void;
+
+  // 上传规则
+  updateUploadRule: (datasetId: string, rule: UploadRule) => void;
+
+  // QA 分段
+  generateQAChunks: (datasetId: string, docId: string, pairs: QAChunkPair[]) => void;
 }
 
 // 生成简易ID
@@ -597,6 +621,14 @@ export const useAppStore = create<AppState>((set) => ({
   datasets: DATASETS,
   datasetFolders: DATASET_FOLDERS,
   currentDatasetId: null,
+  datasetAuthorizations: DATASET_AUTHORIZATIONS,
+  relatedResources: RELATED_RESOURCES,
+
+  // 获取知识库下的文章列表
+  getArticlesByDataset: (datasetId) => {
+    const state = useAppStore.getState();
+    return state.knowledgeList.filter(k => k.datasetId === datasetId);
+  },
 
   // 新增知识库
   addDataset: (dataset) => {
@@ -722,4 +754,119 @@ export const useAppStore = create<AppState>((set) => ({
 
   // 设置当前知识库
   setCurrentDataset: (id) => set({ currentDatasetId: id }),
+
+  // ============ 文件夹管理（三级嵌套） ============
+  addFolder: (name, parentId) => set((state) => {
+    const newFolder: DatasetFolder = { id: genId('ds-folder'), name, parentId, children: [], datasetCount: 0 };
+    if (!parentId) {
+      return { datasetFolders: [...state.datasetFolders, newFolder] };
+    }
+    function addChild(folders: DatasetFolder[]): DatasetFolder[] {
+      return folders.map(f => {
+        if (f.id === parentId) {
+          return { ...f, children: [...(f.children || []), newFolder] };
+        }
+        if (f.children) return { ...f, children: addChild(f.children) };
+        return f;
+      });
+    }
+    return { datasetFolders: addChild(state.datasetFolders) };
+  }),
+
+  renameFolder: (id, name) => set((state) => {
+    function rename(folders: DatasetFolder[]): DatasetFolder[] {
+      return folders.map(f => {
+        if (f.id === id) return { ...f, name };
+        if (f.children) return { ...f, children: rename(f.children) };
+        return f;
+      });
+    }
+    return { datasetFolders: rename(state.datasetFolders) };
+  }),
+
+  deleteFolder: (id) => set((state) => {
+    function remove(folders: DatasetFolder[]): DatasetFolder[] {
+      return folders.filter(f => f.id !== id).map(f => {
+        if (f.children) return { ...f, children: remove(f.children) };
+        return f;
+      });
+    }
+    return { datasetFolders: remove(state.datasetFolders) };
+  }),
+
+  moveFolder: (id, targetParentId) => set((state) => {
+    let moved: DatasetFolder | null = null;
+    function extract(folders: DatasetFolder[]): DatasetFolder[] {
+      const result: DatasetFolder[] = [];
+      for (const f of folders) {
+        if (f.id === id) {
+          moved = { ...f, parentId: targetParentId };
+        } else {
+          result.push(f.children ? { ...f, children: extract(f.children) } : f);
+        }
+      }
+      return result;
+    }
+    function insert(folders: DatasetFolder[]): DatasetFolder[] {
+      if (!moved) return folders;
+      return folders.map(f => {
+        if (f.id === targetParentId) {
+          return { ...f, children: [...(f.children || []), moved!] };
+        }
+        if (f.children) return { ...f, children: insert(f.children) };
+        return f;
+      });
+    }
+    const afterExtract = extract(state.datasetFolders);
+    if (!moved) return { datasetFolders: afterExtract };
+    if (targetParentId === null) {
+      return { datasetFolders: [...afterExtract, moved] };
+    }
+    return { datasetFolders: insert(afterExtract) };
+  }),
+
+  // ============ 资源授权 ============
+  authorizeDataset: (authorization) => set((state) => ({
+    datasetAuthorizations: [...state.datasetAuthorizations, { ...authorization, id: genId('auth'), authorizedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) }],
+  })),
+
+  revokeAuthorization: (id) => set((state) => ({
+    datasetAuthorizations: state.datasetAuthorizations.filter(a => a.id !== id),
+  })),
+
+  // ============ 导入知识库 ============
+  importDataset: (data) => set((state) => ({
+    datasets: [{ ...data, status: 'pending' as const }, ...state.datasets],
+  })),
+
+  // ============ 上传规则 ============
+  updateUploadRule: (datasetId, rule) => set((state) => ({
+    datasets: state.datasets.map(ds =>
+      ds.id === datasetId ? { ...ds, uploadRule: rule, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : ds
+    ),
+  })),
+
+  // ============ QA 分段生成 ============
+  generateQAChunks: (datasetId, docId, pairs) => set((state) => ({
+    datasets: state.datasets.map(ds => {
+      if (ds.id !== datasetId) return ds;
+      return {
+        ...ds,
+        documents: ds.documents.map(doc => {
+          if (doc.id !== docId) return doc;
+          const newChunks = pairs.map((pair, idx) => ({
+            id: genId('chk'),
+            index: (doc.chunks.length || 0) + idx + 1,
+            content: `Q: ${pair.question}\nA: ${pair.answer}`,
+            length: pair.question.length + pair.answer.length,
+            question: pair.question,
+            answer: pair.answer,
+          }));
+          return { ...doc, chunks: [...doc.chunks, ...newChunks], status: 'completed' as const };
+        }),
+        status: 'completed' as const,
+        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      };
+    }),
+  })),
 }));

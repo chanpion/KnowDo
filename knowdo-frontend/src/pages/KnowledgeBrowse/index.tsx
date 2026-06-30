@@ -1,327 +1,466 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input, Select, Button, Segmented, Popover, Dropdown, Modal, message } from 'antd';
-import { SearchOutlined, AppstoreOutlined, UnorderedListOutlined, MoreOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Input, Select, Button, Dropdown, Modal, message, Checkbox, Typography, Popconfirm, Form } from 'antd';
+import {
+  SearchOutlined, MoreOutlined,
+  PlusOutlined, DeleteOutlined, DatabaseOutlined,
+  GlobalOutlined, SwapOutlined, SyncOutlined,
+  ThunderboltOutlined, QuestionCircleOutlined, TeamOutlined,
+  LinkOutlined, SettingOutlined, DownloadOutlined, ExportOutlined,
+  ImportOutlined, FileTextOutlined,
+} from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 import { useAppStore } from '@/store';
-import { formatCount, formatTime } from '@/mock/data';
-import type { Knowledge, CategoryNode } from '@/types';
+import type { Dataset, DatasetType } from '@/types';
+import FolderTree from '@/components/dataset/FolderTree';
+import AuthorizationModal from '@/components/dataset/AuthorizationModal';
+import ImportModal from '@/components/dataset/ImportModal';
 
-type ViewMode = 'grid' | 'list';
-type SortBy = 'time' | 'views' | 'likes';
+const { Title, Text } = Typography;
 
-const TYPE_ICONS: Record<string, string> = { doc: '📄', image: '🖼️', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
+const datasetTypeConfig: Record<DatasetType, { label: string; color: string; icon: React.ReactNode }> = {
+  general: { label: '通用型', color: 'blue', icon: <DatabaseOutlined /> },
+  web: { label: 'Web 站点', color: 'green', icon: <GlobalOutlined /> },
+  feishu: { label: '飞书文档', color: 'purple', icon: <FileTextOutlined /> },
+};
 
-// 关键词高亮组件
-function HighlightText({ text, keyword }: { text: string; keyword: string }) {
-  if (!keyword.trim()) return <>{text}</>;
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+const statusConfig: Record<string, { label: string; color: string }> = {
+  pending: { label: '待处理', color: 'default' },
+  processing: { label: '处理中', color: 'processing' },
+  completed: { label: '已完成', color: 'success' },
+  failed: { label: '失败', color: 'error' },
+};
+
+function DatasetListPanel() {
+  const navigate = useNavigate();
+  const datasets = useAppStore((s) => s.datasets);
+  const knowledgeList = useAppStore((s) => s.knowledgeList);
+  const deleteDataset = useAppStore((s) => s.deleteDataset);
+  const transferDataset = useAppStore((s) => s.transferDataset);
+  const reEmbedDataset = useAppStore((s) => s.reEmbedDataset);
+  const syncWebDataset = useAppStore((s) => s.syncWebDataset);
+  const exportDatasetAsExcel = useAppStore((s) => s.exportDatasetAsExcel);
+  const exportFullDataset = useAppStore((s) => s.exportFullDataset);
+  const updateDataset = useAppStore((s) => s.updateDataset);
+  const datasetFolders = useAppStore((s) => s.datasetFolders);
+
+  const [searchText, setSearchText] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [transferDatasetId, setTransferDatasetId] = useState<string | null>(null);
+  const [settingModalVisible, setSettingModalVisible] = useState(false);
+  const [settingDataset, setSettingDataset] = useState<Dataset | null>(null);
+  const [settingForm] = Form.useForm();
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authDatasetId, setAuthDatasetId] = useState<string | null>(null);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [batchMoveVisible, setBatchMoveVisible] = useState(false);
+
+  const filteredDatasets = datasets.filter((ds) => {
+    const matchSearch = ds.name.toLowerCase().includes(searchText.toLowerCase()) || ds.description.toLowerCase().includes(searchText.toLowerCase());
+    const matchFolder = !selectedFolder || ds.folderId === selectedFolder;
+    return matchSearch && matchFolder;
+  });
+
+  const handleDelete = (id: string) => {
+    deleteDataset(id);
+    message.success('知识库已删除');
+  };
+
+  const handleBatchDelete = () => {
+    selectedIds.forEach((id) => deleteDataset(id));
+    setSelectedIds([]);
+    setBatchMode(false);
+    message.success(`已删除 ${selectedIds.length} 个知识库`);
+  };
+
+  const getArticleCount = (datasetId: string) => knowledgeList.filter(k => k.datasetId === datasetId).length;
+
+  const getDropdownItems = (dataset: Dataset): MenuProps['items'] => {
+    const isWeb = dataset.type === 'web';
+    return [
+      {
+        key: 'sync',
+        icon: <SyncOutlined />,
+        label: '同步',
+        disabled: !isWeb,
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          syncWebDataset(dataset.id, 'replace');
+          message.success(`正在同步知识库「${dataset.name}」...`);
+        },
+      },
+      {
+        key: 'reEmbed',
+        icon: <ThunderboltOutlined />,
+        label: '重新向量化',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          reEmbedDataset(dataset.id);
+          message.success(`正在重新向量化知识库「${dataset.name}」...`);
+        },
+      },
+      {
+        key: 'generateQuestions',
+        icon: <QuestionCircleOutlined />,
+        label: '生成问题',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          message.info(`正在为知识库「${dataset.name}」生成关联问题...（模拟）`);
+        },
+      },
+      { type: 'divider' },
+      {
+        key: 'auth',
+        icon: <TeamOutlined />,
+        label: '资源授权',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          setAuthDatasetId(dataset.id);
+          setAuthModalVisible(true);
+        },
+      },
+      {
+        key: 'relatedResources',
+        icon: <LinkOutlined />,
+        label: '查看关联资源',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          message.info('查看关联资源（详情页已支持）');
+        },
+      },
+      { type: 'divider' },
+      {
+        key: 'transfer',
+        icon: <SwapOutlined />,
+        label: '转移到',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          setTransferDatasetId(dataset.id);
+          setTransferModalVisible(true);
+        },
+      },
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: '设置',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          setSettingDataset(dataset);
+          settingForm.setFieldsValue({
+            name: dataset.name,
+            description: dataset.description,
+            vectorModel: dataset.vectorModel,
+          });
+          setSettingModalVisible(true);
+        },
+      },
+      { type: 'divider' },
+      {
+        key: 'exportExcel',
+        icon: <DownloadOutlined />,
+        label: '导出文档（Excel）',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          exportDatasetAsExcel(dataset.id);
+        },
+      },
+      {
+        key: 'exportFull',
+        icon: <ExportOutlined />,
+        label: '导出知识库',
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          exportFullDataset(dataset.id);
+        },
+      },
+      { type: 'divider' },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        label: '删除',
+        danger: true,
+        onClick: (e) => {
+          e.domEvent.stopPropagation();
+          handleDelete(dataset.id);
+        },
+      },
+    ];
+  };
+
   return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === keyword.toLowerCase()
-          ? <mark key={i} style={{ background: '#fde68a', padding: '0 2px', borderRadius: 2 }}>{part}</mark>
-          : part
-      )}
-    </>
-  );
-}
+    <div className="flex flex-1 min-h-0">
+      {/* 左侧文件夹树 */}
+      <div className="w-[260px] min-w-[260px] folder-tree-panel flex flex-col overflow-hidden">
+        <div className="folder-tree-header">
+          <span className="folder-tree-title">📂 知识库文件夹</span>
+        </div>
+        <div className="flex-1 overflow-auto p-2">
+          <div
+            className={`folder-tree-item ${!selectedFolder ? 'active' : ''}`}
+            onClick={() => setSelectedFolder(null)}
+          >
+            <span className="ft-icon"><DatabaseOutlined /></span>
+            <span className="ft-label">全部知识库</span>
+            <span className="ft-count">{datasets.length}</span>
+          </div>
+          <FolderTree
+            folders={datasetFolders}
+            selectedFolder={selectedFolder}
+            onSelect={setSelectedFolder}
+            datasets={datasets}
+          />
+        </div>
+      </div>
 
-// 搜索历史管理
-function getSearchHistory(): string[] {
-  return JSON.parse(localStorage.getItem('knowdo_search_history') || '[]');
-}
-function addSearchHistory(term: string) {
-  const history = getSearchHistory().filter(h => h !== term);
-  history.unshift(term);
-  localStorage.setItem('knowdo_search_history', JSON.stringify(history.slice(0, 50)));
-}
-function clearSearchHistory() {
-  localStorage.removeItem('knowdo_search_history');
-}
+      {/* 右侧知识库列表 */}
+      <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+        {/* 顶部工具栏 */}
+        <div className="toolbar">
+          <Input
+            placeholder="搜索知识库..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            className="toolbar-search"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+          <div className="toolbar-spacer" />
+          <div className="toolbar-group">
+            {batchMode && (
+              <Text type="secondary" className="text-sm mr-2">
+                已选中 {selectedIds.length} 个
+              </Text>
+            )}
+            {batchMode && selectedIds.length > 0 && (
+              <>
+                <Popconfirm title={`确定删除选中的 ${selectedIds.length} 个知识库？`} onConfirm={handleBatchDelete}>
+                  <Button danger size="small" icon={<DeleteOutlined />}>批量删除</Button>
+                </Popconfirm>
+                <Button size="small" icon={<SwapOutlined />} onClick={() => setBatchMoveVisible(true)}>批量移动</Button>
+              </>
+            )}
+            <Button
+              size="small"
+              onClick={() => { setBatchMode(!batchMode); setSelectedIds([]); }}
+            >
+              {batchMode ? '取消选择' : '批量选择'}
+            </Button>
+          </div>
+          <div className="toolbar-divider" />
+          <div className="toolbar-group">
+            <Button
+              size="small"
+              icon={<ImportOutlined />}
+              onClick={() => setImportModalVisible(true)}
+            >
+              导入知识库
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/create')}
+            >
+              创建知识库
+            </Button>
+          </div>
+        </div>
 
-function CategoryTreeItem({ node, selectedId, onSelect, depth = 0, onAdd, onEdit, onDelete, isAdmin }: {
-  node: CategoryNode;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  depth?: number;
-  onAdd: (parentId: string) => void;
-  onEdit: (id: string, currentName: string) => void;
-  onDelete: (id: string, name: string) => void;
-  isAdmin: boolean;
-}) {
-  const [expanded, setExpanded] = useState(depth === 0);
-  const hasChildren = node.children && node.children.length > 0;
+        {/* 知识库卡片列表 */}
+        <div className="flex-1 overflow-auto p-6">
+          {filteredDatasets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <DatabaseOutlined style={{ fontSize: 48 }} />
+              <Text type="secondary" className="mt-4">暂无知识库数据</Text>
+              <Button type="primary" className="mt-4" onClick={() => navigate('/create')}>
+                创建第一个知识库
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDatasets.map((dataset) => {
+                const typeCfg = datasetTypeConfig[dataset.type];
+                const statusCfg = statusConfig[dataset.status];
+                const isSelected = selectedIds.includes(dataset.id);
+                const iconColorClass = typeCfg.color === 'blue' ? 'blue' : typeCfg.color === 'green' ? 'green' : 'purple';
 
-  const menuItems = [
-    ...(depth < 2 ? [{ key: 'add', label: '添加子分类', icon: <PlusOutlined /> }] : []),
-    { key: 'edit', label: '编辑名称', icon: <EditOutlined /> },
-    { key: 'delete', label: '删除分类', icon: <DeleteOutlined />, danger: true },
-  ];
+                return (
+                  <div
+                    key={dataset.id}
+                    className={`dataset-card dataset-card-type-${iconColorClass} ${isSelected ? 'selected' : ''}`}
+                    onClick={() => {
+                      if (batchMode) {
+                        setSelectedIds((prev) =>
+                          prev.includes(dataset.id)
+                            ? prev.filter((id) => id !== dataset.id)
+                            : [...prev, dataset.id]
+                        );
+                      } else {
+                        navigate(`/detail/${dataset.id}`);
+                      }
+                    }}
+                  >
+                    <div className="dataset-card-header">
+                      <div style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+                        {batchMode && (
+                          <Checkbox
+                            checked={isSelected}
+                            style={{ marginRight: 10, flexShrink: 0 }}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setSelectedIds((prev) =>
+                                prev.includes(dataset.id)
+                                  ? prev.filter((id) => id !== dataset.id)
+                                  : [...prev, dataset.id]
+                              );
+                            }}
+                          />
+                        )}
+                        <span className={`dataset-card-icon ${iconColorClass}`}>
+                          {typeCfg.icon}
+                        </span>
+                        <div className="dataset-card-body">
+                          <div className="dataset-card-title">{dataset.name}</div>
+                        </div>
+                      </div>
+                      <Dropdown menu={{ items: getDropdownItems(dataset) }} trigger={['click']} placement="bottomRight">
+                        <button
+                          className="dataset-more-btn"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreOutlined />
+                        </button>
+                      </Dropdown>
+                    </div>
 
-  return (
-    <div className="tree-node">
-      <div
-        className={`node-label ${selectedId === node.id ? 'active' : ''}`}
-        style={{ paddingLeft: 10 + depth * 18 }}
-        onClick={() => {
-          if (hasChildren) setExpanded(!expanded);
-          onSelect(node.id);
+                    <div className="dataset-card-tags">
+                      <span className={`dataset-card-tag ${iconColorClass}`}>{typeCfg.label}</span>
+                      <span className={`dataset-card-tag ${dataset.status === 'completed' ? 'green' : dataset.status === 'processing' ? 'blue' : 'slate'}`}>
+                        {statusCfg.label}
+                      </span>
+                    </div>
+
+                    <div className="dataset-card-desc">{dataset.description}</div>
+
+                    <div className="dataset-stat-bar">
+                      <div className="dataset-stat-item">
+                        <span className="stat-dot dot-blue" />
+                        <span>文章 {getArticleCount(dataset.id)} 篇</span>
+                      </div>
+                      <div className="dataset-stat-item">
+                        <span className="stat-dot dot-green" />
+                        <span>文档 {dataset.documents.length} 个</span>
+                      </div>
+                      <span className="text-xs" style={{ color: '#94a3b8' }}>{dataset.vectorModel?.split('/').pop()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      <Modal
+        title="转移知识库"
+        open={transferModalVisible}
+        onCancel={() => setTransferModalVisible(false)}
+        footer={null}
+      >
+        <p className="mb-3">选择目标文件夹：</p>
+        <Select
+          className="w-full"
+          placeholder="请选择文件夹"
+          onChange={(val) => {
+            if (transferDatasetId) {
+              transferDataset(transferDatasetId, val);
+              message.success('转移成功');
+            }
+            setTransferModalVisible(false);
+          }}
+        >
+          {datasetFolders.map((folder) => (
+            <Select.Option key={folder.id} value={folder.id}>{folder.name}</Select.Option>
+          ))}
+        </Select>
+      </Modal>
+
+      <Modal
+        title="设置知识库"
+        open={settingModalVisible}
+        onCancel={() => setSettingModalVisible(false)}
+        onOk={() => {
+          settingForm.validateFields().then((values) => {
+            if (settingDataset) {
+              updateDataset(settingDataset.id, values);
+              message.success('设置已保存');
+            }
+            setSettingModalVisible(false);
+          });
         }}
       >
-        {hasChildren && (
-          <span className={`expand-icon ${expanded ? 'expanded' : ''}`}>▶</span>
-        )}
-        {!hasChildren && <span style={{ width: 14 }} />}
-        {node.icon && <span className="node-icon">{node.icon}</span>}
-        <span style={{ flex: 1 }}>{node.name}</span>
-        {isAdmin && (
-          <Dropdown
-            menu={{
-              items: menuItems,
-              onClick: ({ key, domEvent }) => {
-                domEvent.stopPropagation();
-                if (key === 'add') onAdd(node.id);
-                if (key === 'edit') onEdit(node.id, node.name);
-                if (key === 'delete') onDelete(node.id, node.name);
-              },
-            }}
-            trigger={['click']}
-          >
-            <Button
-              type="text"
-              size="small"
-              icon={<MoreOutlined />}
-              onClick={e => e.stopPropagation()}
-              style={{ visibility: 'visible', opacity: 0.4, marginLeft: 'auto' }}
+        <Form form={settingForm} layout="vertical">
+          <Form.Item label="知识库名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="描述" name="description">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item label="向量模型" name="vectorModel">
+            <Select
+              options={[
+                { value: 'bge-large-zh-v1.5', label: 'BAAI/bge-large-zh-v1.5' },
+                { value: 'text-embedding-3-large', label: 'OpenAI/text-embedding-3-large' },
+                { value: 'text2vec-large-chinese', label: 'shibing624/text2vec-large-chinese' },
+              ]}
             />
-          </Dropdown>
-        )}
-      </div>
-      {hasChildren && expanded && node.children!.map(child => (
-        <CategoryTreeItem
-          key={child.id}
-          node={child}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          depth={depth + 1}
-          onAdd={onAdd}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          isAdmin={isAdmin}
-        />
-      ))}
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <AuthorizationModal
+        open={authModalVisible}
+        datasetId={authDatasetId || ''}
+        onClose={() => { setAuthModalVisible(false); setAuthDatasetId(null); }}
+      />
+
+      <ImportModal
+        open={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
+      />
+
+      <Modal
+        title="批量移动到"
+        open={batchMoveVisible}
+        onCancel={() => setBatchMoveVisible(false)}
+        footer={null}
+      >
+        <p className="mb-3">选择目标文件夹：</p>
+        <Select
+          className="w-full"
+          placeholder="请选择目标文件夹"
+          onChange={(val) => {
+            selectedIds.forEach((id) => transferDataset(id, val));
+            message.success(`已将 ${selectedIds.length} 个知识库移动`);
+            setSelectedIds([]);
+            setBatchMode(false);
+            setBatchMoveVisible(false);
+          }}
+        >
+          {datasetFolders.map((folder) => (
+            <Select.Option key={folder.id} value={folder.id}>{folder.name}</Select.Option>
+          ))}
+        </Select>
+      </Modal>
     </div>
   );
 }
 
-function KnowledgeCard({ item, viewMode, searchKeyword, onLike, onFavorite }: {
-  item: Knowledge;
-  viewMode: ViewMode;
-  searchKeyword: string;
-  onLike: (id: string) => void;
-  onFavorite: (id: string) => void;
-}) {
-  const navigate = useNavigate();
-  const [showPreview, setShowPreview] = useState(false);
-  const previewRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
-
-  const handleMouseEnter = () => {
-    timerRef.current = setTimeout(() => setShowPreview(true), 800);
-  };
-  const handleMouseLeave = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setShowPreview(false);
-  };
-
-  if (viewMode === 'list') {
-    return (
-      <div className="knowledge-card list-view" onClick={() => navigate(`/detail/${item.id}`)}>
-        <span className={`kc-type-badge ${item.type}`}>
-          {TYPE_ICONS[item.type] || '📄'} {item.typeLabel}
-        </span>
-        <div className="kc-content">
-          <div className="kc-title" style={{ WebkitLineClamp: 1 }}>
-            <HighlightText text={item.title} keyword={searchKeyword} />
-          </div>
-          <div className="kc-summary" style={{ WebkitLineClamp: 1 }}>
-            <HighlightText text={item.summary} keyword={searchKeyword} />
-          </div>
-          <div className="kc-tags">
-            {(item.tags || []).slice(0, 3).map(tag => (
-              <span key={tag} className="tag tag-blue">{tag}</span>
-            ))}
-          </div>
-        </div>
-        <div className="kc-meta" onClick={e => e.stopPropagation()}>
-          <span style={{ marginRight: 12 }}>👤 {item.author}</span>
-          <span style={{ marginRight: 12 }}>{formatTime(item.publishTime)}</span>
-          <span className="kc-stat" onClick={() => onLike(item.id)}>
-            {item.isLiked ? '❤️' : '🤍'} {formatCount(item.likeCount)}
-          </span>
-          <span className="kc-stat">👁 {formatCount(item.viewCount)}</span>
-          <span className="kc-stat" onClick={() => onFavorite(item.id)}>
-            {item.isFavorited ? '⭐' : '☆'} {formatCount(item.favoriteCount)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Popover
-      content={
-        <div style={{ maxWidth: 360 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{item.title}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            {item.content.substring(0, 200)}{item.content.length > 200 && '...'}
-          </div>
-        </div>
-      }
-      title={null}
-      trigger="hover"
-      mouseEnterDelay={0.8}
-    >
-      <div className="knowledge-card" onClick={() => navigate(`/detail/${item.id}`)}>
-        <span className={`kc-type-badge ${item.type}`}>
-          {TYPE_ICONS[item.type] || '📄'} {item.typeLabel}
-        </span>
-        <div className="kc-title">
-          <HighlightText text={item.title} keyword={searchKeyword} />
-        </div>
-        <div className="kc-summary">
-          <HighlightText text={item.summary} keyword={searchKeyword} />
-        </div>
-        <div className="kc-tags">
-          {(item.tags || []).slice(0, 3).map(tag => (
-            <span key={tag} className="tag tag-blue">{tag}</span>
-          ))}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>📂 {item.category}</div>
-        <div className="kc-meta" onClick={e => e.stopPropagation()}>
-          <div className="kc-meta-left">
-            <span>👤 {item.author}</span>
-            <span>{formatTime(item.publishTime)}</span>
-          </div>
-          <div className="kc-meta-right">
-            <span className="kc-stat" onClick={() => onLike(item.id)}>
-              {item.isLiked ? '❤️' : '🤍'} {formatCount(item.likeCount)}
-            </span>
-            <span className="kc-stat">👁 {formatCount(item.viewCount)}</span>
-            <span className="kc-stat" onClick={() => onFavorite(item.id)}>
-              {item.isFavorited ? '⭐' : '☆'} {formatCount(item.favoriteCount)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </Popover>
-  );
-}
-
 export default function KnowledgeBrowse() {
-  const navigate = useNavigate();
-  const { knowledgeList, categoryTree, toggleLike, toggleFavorite, addCategory, updateCategory, deleteCategory, user } = useAppStore();
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>('time');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [showSearchHistory, setShowSearchHistory] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>(getSearchHistory());
-
-  // 分类管理弹窗
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [categoryFormParentId, setCategoryFormParentId] = useState<string | null>(null);
-  const [categoryFormId, setCategoryFormId] = useState<string>('');
-  const [categoryFormName, setCategoryFormName] = useState('');
-
-  const isAdmin = user.role === 'admin';
-
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    if (value.trim()) {
-      addSearchHistory(value.trim());
-      setSearchHistory(getSearchHistory());
-    }
-  };
-
-  const handleClearHistory = () => {
-    clearSearchHistory();
-    setSearchHistory([]);
-    message.success('搜索历史已清空');
-  };
-
-  // 分类管理操作
-  const handleAddCategory = (parentId: string | null) => {
-    setCategoryFormParentId(parentId);
-    setCategoryFormName('');
-    setAddModalVisible(true);
-  };
-
-  const handleEditCategory = (id: string, currentName: string) => {
-    setCategoryFormId(id);
-    setCategoryFormName(currentName);
-    setEditModalVisible(true);
-  };
-
-  const handleDeleteCategory = (id: string, name: string) => {
-    const ok = deleteCategory(id);
-    if (!ok) {
-      message.warning(`"${name}" 下存在子分类或关联知识，无法删除`);
-    } else {
-      message.success('分类已删除');
-    }
-  };
-
-  const confirmAddCategory = () => {
-    if (!categoryFormName.trim()) return;
-    addCategory(categoryFormParentId, categoryFormName.trim());
-    message.success('分类已添加');
-    setAddModalVisible(false);
-  };
-
-  const confirmEditCategory = () => {
-    if (!categoryFormName.trim()) return;
-    updateCategory(categoryFormId, categoryFormName.trim());
-    message.success('分类名称已更新');
-    setEditModalVisible(false);
-  };
-
-  const filteredList = useMemo(() => {
-    let list = knowledgeList.filter(k =>
-      k.status === 'published' // 只显示已发布的知识，排除草稿/已过期/已归档
-    );
-
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter(k =>
-        k.title.toLowerCase().includes(s) ||
-        k.summary.toLowerCase().includes(s) ||
-        k.tags.some(t => t.toLowerCase().includes(s))
-      );
-    }
-
-    if (selectedCategory) {
-      list = list.filter(k => k.categoryId === selectedCategory || k.categoryId.startsWith(selectedCategory));
-    }
-
-    if (selectedType) {
-      list = list.filter(k => k.type === selectedType);
-    }
-
-    if (sortBy === 'time') {
-      list.sort((a, b) => new Date(b.publishTime).getTime() - new Date(a.publishTime).getTime());
-    } else if (sortBy === 'views') {
-      list.sort((a, b) => b.viewCount - a.viewCount);
-    } else if (sortBy === 'likes') {
-      list.sort((a, b) => b.likeCount - a.likeCount);
-    }
-
-    return list;
-  }, [knowledgeList, search, selectedCategory, sortBy, selectedType]);
-
   return (
     <div className="page-container">
       <div className="breadcrumb">
@@ -330,191 +469,7 @@ export default function KnowledgeBrowse() {
         <span>知识库</span>
       </div>
       <h1 className="page-title">📚 知识库</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
-        {/* 左侧分类 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="category-tree">
-            <div style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>📂 知识分类</span>
-              {isAdmin && (
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => handleAddCategory(null)}
-                  title="添加一级分类"
-                />
-              )}
-            </div>
-            {categoryTree.map(node => (
-              <CategoryTreeItem
-                key={node.id}
-                node={node}
-                selectedId={selectedCategory}
-                onSelect={(id) => setSelectedCategory(selectedCategory === id ? null : id)}
-                onAdd={handleAddCategory}
-                onEdit={handleEditCategory}
-                onDelete={handleDeleteCategory}
-                isAdmin={isAdmin}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* 右侧内容 */}
-        <div>
-          {/* 搜索和筛选 */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Popover
-              open={showSearchHistory && searchHistory.length > 0 && !search}
-              onOpenChange={setShowSearchHistory}
-              content={
-                <div style={{ width: 260 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>搜索历史</span>
-                    <Button type="link" size="small" onClick={handleClearHistory}>清空</Button>
-                  </div>
-                  {searchHistory.slice(0, 8).map((term, i) => (
-                    <div
-                      key={i}
-                      style={{ padding: '4px 0', fontSize: 13, cursor: 'pointer', color: 'var(--text-secondary)' }}
-                      onClick={() => { setSearch(term); handleSearch(term); setShowSearchHistory(false); }}
-                    >
-                      🕐 {term}
-                    </div>
-                  ))}
-                </div>
-              }
-              trigger="focus"
-            >
-              <Input
-                prefix={<SearchOutlined />}
-                placeholder="搜索知识标题、内容、标签..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onPressEnter={() => handleSearch(search)}
-                onFocus={() => { setSearchHistory(getSearchHistory()); if (searchHistory.length > 0) setShowSearchHistory(true); }}
-                style={{ flex: 1, minWidth: 200 }}
-                allowClear
-                suffix={
-                  search ? (
-                    <SearchOutlined style={{ cursor: 'pointer', color: 'var(--primary)' }} onClick={() => handleSearch(search)} />
-                  ) : null
-                }
-              />
-            </Popover>
-            <Select
-              value={selectedType}
-              onChange={setSelectedType}
-              placeholder="知识类型"
-              allowClear
-              style={{ width: 130 }}
-              options={[
-                { value: 'doc', label: '📄 文档' },
-                { value: 'image', label: '🖼️ 图片' },
-                { value: 'video', label: '🎬 视频' },
-                { value: 'audio', label: '🎵 音频' },
-                { value: 'link', label: '🔗 链接' },
-                { value: 'qa', label: '❓ 问答' },
-              ]}
-            />
-            <Select
-              value={sortBy}
-              onChange={setSortBy}
-              style={{ width: 130 }}
-              options={[
-                { value: 'time', label: '🕐 最新发布' },
-                { value: 'views', label: '👁 最多浏览' },
-                { value: 'likes', label: '❤️ 最多点赞' },
-              ]}
-            />
-            <Segmented
-              value={viewMode}
-              onChange={(v) => setViewMode(v as ViewMode)}
-              options={[
-                { value: 'grid', icon: <AppstoreOutlined /> },
-                { value: 'list', icon: <UnorderedListOutlined /> },
-              ]}
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/create')}>
-              创建知识
-            </Button>
-          </div>
-
-          {/* 结果统计 */}
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-            共 {filteredList.length} 条知识
-            {selectedCategory && ' · 已筛选分类'}
-            {search && ` · 搜索"${search}"`}
-          </div>
-
-          {/* 知识列表 */}
-          {filteredList.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">📭</div>
-              <div className="empty-text">暂无匹配的知识内容</div>
-            </div>
-          ) : (
-            <div style={{
-              display: viewMode === 'grid' ? 'grid' : 'block',
-              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(360px, 1fr))' : undefined,
-              gap: 16,
-            }}>
-              {filteredList.map(item => (
-                <KnowledgeCard
-                  key={item.id}
-                  item={item}
-                  viewMode={viewMode}
-                  searchKeyword={search}
-                  onLike={toggleLike}
-                  onFavorite={toggleFavorite}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 添加分类 Modal */}
-      <Modal
-        title="添加分类"
-        open={addModalVisible}
-        onOk={confirmAddCategory}
-        onCancel={() => setAddModalVisible(false)}
-        okText="确定"
-        cancelText="取消"
-      >
-        <div style={{ marginTop: 12 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>分类名称</label>
-          <Input
-            value={categoryFormName}
-            onChange={e => setCategoryFormName(e.target.value)}
-            onPressEnter={confirmAddCategory}
-            placeholder="请输入分类名称"
-          />
-        </div>
-      </Modal>
-
-      {/* 编辑分类 Modal */}
-      <Modal
-        title="编辑分类名称"
-        open={editModalVisible}
-        onOk={confirmEditCategory}
-        onCancel={() => setEditModalVisible(false)}
-        okText="确定"
-        cancelText="取消"
-      >
-        <div style={{ marginTop: 12 }}>
-          <label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>新名称</label>
-          <Input
-            value={categoryFormName}
-            onChange={e => setCategoryFormName(e.target.value)}
-            onPressEnter={confirmEditCategory}
-            placeholder="请输入新的分类名称"
-          />
-        </div>
-      </Modal>
+      <DatasetListPanel />
     </div>
   );
 }
