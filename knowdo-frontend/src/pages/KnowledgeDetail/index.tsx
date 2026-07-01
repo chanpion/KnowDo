@@ -13,7 +13,7 @@ import { formatCount, formatTime } from '@/mock/data';
 import AuthorizationModal from '@/components/dataset/AuthorizationModal';
 import RelatedResourcesModal from '@/components/dataset/RelatedResourcesModal';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 const TYPE_ICONS: Record<string, string> = { doc: '📄', image: '🖼️', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
 
