@@ -1584,29 +1584,60 @@ body {
 /* ============================================
    知识库列表 - 自定义卡片
    ============================================ */
+@keyframes cardEntrance {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+
+@keyframes progressPulse {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes borderPulse {
+  0%, 100% { border-color: #93c5fd; }
+  50% { border-color: #3b82f6; }
+}
+
 .dataset-card {
   background: var(--bg-white);
   border-radius: 12px;
   border: 1px solid var(--border-color);
   padding: 20px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  animation: cardEntrance 0.4s ease both;
 }
 .dataset-card::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 3px;
+  height: 4px;
   border-radius: 12px 12px 0 0;
   opacity: 0;
   transition: opacity 0.3s;
+  z-index: 1;
+}
+.dataset-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
 }
 .dataset-card:hover {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   border-color: var(--primary-light);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
 }
 .dataset-card:hover::before {
   opacity: 1;
@@ -1615,6 +1646,13 @@ body {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(26, 86, 219, 0.2);
   background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+}
+.dataset-card.selected::after {
+  opacity: 1;
+  background: linear-gradient(135deg, rgba(26, 86, 219, 0.03), transparent);
+}
+.dataset-card.dataset-card-processing {
+  animation: borderPulse 2s ease-in-out infinite;
 }
 .dataset-card-type-blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
 .dataset-card-type-green::before { background: linear-gradient(90deg, #22c55e, #4ade80); }
@@ -1635,6 +1673,10 @@ body {
   justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+.dataset-card:hover .dataset-card-icon {
+  transform: scale(1.05);
 }
 .dataset-card-icon.blue { background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #2563eb; }
 .dataset-card-icon.green { background: linear-gradient(135deg, #f0fdf4, #dcfce7); color: #16a34a; }
@@ -1700,6 +1742,64 @@ body {
   align-items: center;
   gap: 4px;
   transition: color 0.2s;
+}
+.dataset-card:hover .dataset-stat-item {
+  color: var(--text-secondary);
+}
+
+/* 处理中进度条 */
+.dataset-processing-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.dataset-processing-bar-inner {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 2px;
+  animation: progressPulse 1.8s ease-in-out infinite;
+}
+
+/* 选中勾选标记 */
+.dataset-check-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 6px rgba(26, 86, 219, 0.3);
+  animation: cardEntrance 0.2s ease both;
+}
+
+/* 更多按钮 */
+.dataset-more-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 16px;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.dataset-more-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+  border-color: #e2e8f0;
 }
 .dataset-stat-item:hover {
   color: var(--primary);
@@ -1809,13 +1909,64 @@ body {
   flex-shrink: 0;
 }
 
+/* 文件夹树操作按钮 */
+.folder-tree-item-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.folder-tree-item-wrapper .folder-tree-item {
+  flex: 1;
+  min-width: 0;
+}
+.folder-tree-item-wrapper .folder-tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+.ft-action-btn {
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  border-radius: 4px !important;
+}
+.ft-action-btn:hover {
+  color: var(--primary) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* 知识库详情页侧边栏菜单 */
+.knowledge-detail-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border-left: 3px solid transparent;
+}
+.knowledge-detail-menu-item:hover {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+.knowledge-detail-menu-item.active {
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-weight: 500;
+  border-left-color: var(--primary);
+}
+
 /* ============================================
    工具栏分组
    ============================================ */
 .toolbar {
   background: var(--bg-white);
   border-bottom: 1px solid var(--border-color);
-  padding: 12px 20px;
+  padding: 14px 28px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1883,6 +2034,36 @@ body {
   gap: 8px;
   margin-top: 8px;
   flex-wrap: wrap;
+}
+
+/* 头部统计条 */
+.detail-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+.detail-header-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.detail-header-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.detail-header-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.detail-header-stat-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
 }
 
 /* Tabs 区域 */
@@ -2035,4 +2216,179 @@ body {
 }
 .detail-breadcrumb a:hover {
   color: var(--primary);
+}
+
+/* ============================================
+   骨架屏动画
+   ============================================ */
+@keyframes skeletonPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+.skeleton-card {
+  pointer-events: none;
+  border: 1px dashed #e2e8f0;
+}
+.skeleton-line {
+  background: #e2e8f0;
+  border-radius: 6px;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.skeleton-card .skeleton-line:nth-child(2) { animation-delay: 0.15s; }
+.skeleton-card .skeleton-line:nth-child(3) { animation-delay: 0.3s; }
+
+/* ============================================
+   视图切换按钮
+   ============================================ */
+.view-toggle-btn {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 15px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+.view-toggle-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+}
+.view-toggle-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ============================================
+   小屏折叠按钮
+   ============================================ */
+.toolbar-collapse-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: none;
+}
+.toolbar-collapse-btn:hover {
+  background: #f1f5f9;
+  border-color: var(--primary-light);
+  color: var(--primary);
+}
+
+/* ============================================
+   数据集列表视图
+   ============================================ */
+.dataset-list-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dataset-list-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: cardEntrance 0.35s ease both;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.dataset-list-row:hover {
+  background: #f8fafc;
+}
+.dataset-list-row.selected {
+  background: #eff6ff;
+}
+.dataset-list-row:last-child {
+  border-bottom: none;
+}
+.dataset-list-col {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 8px;
+}
+.dataset-list-cell {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dataset-list-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  gap: 8px;
+}
+.dataset-card-icon-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.dataset-card-icon-sm.blue { background: #eff6ff; color: #2563eb; }
+.dataset-card-icon-sm.green { background: #f0fdf4; color: #16a34a; }
+.dataset-card-icon-sm.purple { background: #faf5ff; color: #7c3aed; }
+
+/* ============================================
+   响应式布局
+   ============================================ */
+@media (max-width: 1024px) {
+  .toolbar-collapse-btn {
+    display: flex;
+    align-items: center;
+  }
+  .view-toggle-btn {
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .toolbar-search {
+    max-width: 160px;
+  }
+  .toolbar-collapse-btn {
+    display: flex;
+  }
+  .dataset-list-header,
+  .dataset-list-row {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar-divider {
+    display: none;
+  }
+  .toolbar-group {
+    flex-wrap: nowrap;
+  }
 }
