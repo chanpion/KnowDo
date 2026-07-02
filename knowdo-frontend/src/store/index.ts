@@ -185,7 +185,7 @@ function categoryHasDependencies(nodes: CategoryNode[], id: string, knowledgeLis
   return knowledgeList.some(k => k.categoryId === id || k.categoryId.startsWith(id + '-'));
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   user: MOCK_USER,
   knowledgeList: KNOWLEDGE_LIST,
   notifications: NOTIFICATIONS,
@@ -625,9 +625,8 @@ export const useAppStore = create<AppState>((set) => ({
   relatedResources: RELATED_RESOURCES,
 
   // 获取知识库下的文章列表
-  getArticlesByDataset: (datasetId) => {
-    const state = useAppStore.getState();
-    return state.knowledgeList.filter(k => k.datasetId === datasetId);
+  getArticlesByDataset: (datasetId: string): Knowledge[] => {
+    return get().knowledgeList.filter((k: Knowledge) => k.datasetId === datasetId);
   },
 
   // 新增知识库
@@ -835,9 +834,12 @@ export const useAppStore = create<AppState>((set) => ({
   })),
 
   // ============ 导入知识库 ============
-  importDataset: (data) => set((state) => ({
-    datasets: [{ ...data, status: 'pending' as const }, ...state.datasets],
-  })),
+  importDataset: (data) => set((state) => {
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    return {
+      datasets: [{ ...data, id: genId('ds'), createdAt: now, updatedAt: now, status: 'pending' as const }, ...state.datasets],
+    };
+  }),
 
   // ============ 上传规则 ============
   updateUploadRule: (datasetId, rule) => set((state) => ({

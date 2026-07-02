@@ -302,6 +302,7 @@ export interface Dataset {
   id: string;
   name: string;
   description: string;
+  tags?: string[];
   type: DatasetType;
   vectorModel: string;
   webUrl?: string;
@@ -317,6 +318,16 @@ export interface Dataset {
   uploadRule?: UploadRule;
   documentCount?: number;
   charCount?: number;
+  // 设置页相关字段
+  icon?: string;              // 知识库图标 emoji
+  permission?: 'private' | 'team' | 'public'; // 可见权限
+  indexMode?: 'high_quality' | 'economy';    // 索引模式
+  embeddingModel?: string;    // Embedding 模型
+  searchMode?: 'vector' | 'fulltext' | 'hybrid'; // 检索模式
+  topK?: number;              // 返回条数
+  scoreThreshold?: number;    // 分数阈值
+  enableRerank?: boolean;    // 启用重排序
+  rerankModel?: string;       // 重排序模型
 }
 
 // 向量模型

@@ -125,19 +125,21 @@ export default function TagsPage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>添加标签</Button>
       </div>
 
-      <div className="model-content">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {tagLibrary.length === 0 ? (
-          <div style={{ padding: 60 }}>
+          <div style={{ padding: 60, background: 'white', borderRadius: 8 }}>
             <Empty description="暂无标签" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           </div>
         ) : (
-          <Table
-            dataSource={tagLibrary}
-            columns={columns}
-            rowKey="id"
-            pagination={false}
-            size="middle"
-          />
+          <div style={{ background: 'white', borderRadius: 8, padding: '0 0 16px' }}>
+            <Table
+              dataSource={tagLibrary}
+              columns={columns}
+              rowKey="id"
+              pagination={false}
+              size="middle"
+            />
+          </div>
         )}
       </div>
 

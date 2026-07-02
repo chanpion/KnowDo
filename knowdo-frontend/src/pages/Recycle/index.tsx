@@ -108,19 +108,21 @@ export default function RecyclePage() {
         💡 删除的知识将在回收站保留30天，逾期将自动物理删除。剩余不足3天的项目标红提醒。
       </div>
 
-      <div className="model-content">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {deletedKnowledgeList.length === 0 ? (
-          <div style={{ padding: 60 }}>
+          <div style={{ padding: 60, background: 'white', borderRadius: 8 }}>
             <Empty description="回收站为空" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           </div>
         ) : (
-          <Table
-            dataSource={deletedKnowledgeList}
-            columns={columns}
-            rowKey="id"
-            pagination={false}
-            size="middle"
-          />
+          <div style={{ background: 'white', borderRadius: 8, padding: '0 0 16px' }}>
+            <Table
+              dataSource={deletedKnowledgeList}
+              columns={columns}
+              rowKey="id"
+              pagination={false}
+              size="middle"
+            />
+          </div>
         )}
       </div>
     </div>

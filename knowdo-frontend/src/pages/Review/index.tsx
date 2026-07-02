@@ -66,33 +66,30 @@ export default function ReviewPage() {
       </div>
       <h1 className="page-title">📋 审核管理</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24, alignItems: 'start' }}>
+      <div className="flex flex-1 min-h-0">
         {/* 左侧审核队列 */}
-        <div className="model-sidebar" style={{ position: 'sticky', top: 80 }}>
-          <div style={{ padding: '12px 16px', fontWeight: 600, fontSize: 14, borderBottom: '1px solid var(--border-color)' }}>
-            待审核列表 ({reviewQueue.length})
-          </div>
-          <div style={{ padding: 8 }}>
+        <div className="folder-tree-panel flex flex-col overflow-hidden w-[260px] min-w-[260px]">
+          <div className="flex-1 overflow-auto p-4">
             {reviewQueue.length === 0 ? (
-              <Empty description="暂无待审核知识" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+                暂无待审核知识
+              </div>
             ) : (
               reviewQueue.map(item => (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`model-provider-item ${selectedId === item.id ? 'active' : ''}`}
-                  style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4, padding: '10px 14px' }}
-                >
-                  <div style={{ fontWeight: 500, fontSize: 13, lineHeight: 1.4 }}>{item.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {item.author} · {item.authorDept}
+                <div key={item.id} className="folder-tree-item-wrapper">
+                  <div
+                    onClick={() => setSelectedId(item.id)}
+                    className={`folder-tree-item ${selectedId === item.id ? 'active' : ''}`}
+                    style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}
+                  >
+                    <span className="ft-label" style={{ fontWeight: 500 }}>{item.title}</span>
+                    <span className="ft-count">{item.author} · {item.authorDept}</span>
+                    {item.aiScore > 0 && (
+                      <span className="ft-count" style={{ background: item.aiScore >= 4 ? '#dcfce7' : item.aiScore >= 3 ? '#fef3c7' : '#fee2e2', color: item.aiScore >= 4 ? '#166534' : item.aiScore >= 3 ? '#92400e' : '#991b1b' }}>
+                        AI: {item.aiScore}
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.submitTime}</div>
-                  {item.aiScore > 0 && (
-                    <Tag color={item.aiScore >= 4 ? 'green' : item.aiScore >= 3 ? 'orange' : 'red'}>
-                      AI评分: {item.aiScore}
-                    </Tag>
-                  )}
                 </div>
               ))
             )}
@@ -100,7 +97,7 @@ export default function ReviewPage() {
         </div>
 
         {/* 右侧审核操作区 */}
-        <div className="model-content" style={{ minHeight: 500 }}>
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           {!selectedReview ? (
             <div style={{ padding: 80, textAlign: 'center' }}>
               <Empty description="请从左侧选择待审核知识" image={Empty.PRESENTED_IMAGE_SIMPLE} />

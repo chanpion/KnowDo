@@ -74,19 +74,18 @@ export default function FavoritesPage() {
       </div>
       <h1 className="page-title">⭐ 我的收藏</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, alignItems: 'start' }}>
+      <div className="flex flex-1 min-h-0">
         {/* 左侧收藏夹列表 */}
-        <div className="model-sidebar">
-          <div className="model-sidebar-section">
-            <div className="model-sidebar-section-title">收藏夹</div>
-            <div className="model-provider-list">
-              {favoriteFolders.map(folder => (
+        <div className="folder-tree-panel flex flex-col overflow-hidden w-[260px] min-w-[260px]">
+          <div className="flex-1 overflow-auto p-4">
+            {favoriteFolders.map(folder => (
+              <div key={folder.id} className="folder-tree-item-wrapper">
                 <div
-                  key={folder.id}
-                  className={`model-provider-item ${activeFolderId === folder.id ? 'active' : ''}`}
+                  className={`folder-tree-item ${activeFolderId === folder.id ? 'active' : ''}`}
                   onClick={() => setActiveFolderId(folder.id)}
                 >
-                  <div style={{ flex: 1 }}>
+                  <span className="ft-icon">⭐</span>
+                  <span className="ft-label">
                     {editingId === folder.id ? (
                       <Input
                         size="small"
@@ -97,45 +96,28 @@ export default function FavoritesPage() {
                         autoFocus
                         onClick={e => e.stopPropagation()}
                       />
-                    ) : (
-                      <span className="model-provider-name">
-                        <StarFilled style={{ color: '#f59e0b', marginRight: 6, fontSize: 12 }} />
-                        {folder.name}
-                      </span>
-                    )}
-                  </div>
-                  {folder.id !== 'fav-default' && (
-                    <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined style={{ fontSize: 11 }} />}
-                        onClick={() => { setEditingId(folder.id); setEditName(folder.name); }}
-                      />
-                      <Popconfirm title="确定删除此收藏夹？" onConfirm={() => handleDeleteFolder(folder.id)}>
-                        <Button type="text" size="small" danger icon={<DeleteOutlined style={{ fontSize: 11 }} />} />
-                      </Popconfirm>
-                    </div>
-                  )}
+                    ) : folder.name}
+                  </span>
+                  <span className="ft-count">{folder.count}</span>
                 </div>
-              ))}
+              </div>
+            ))}
+            {/* 新建收藏夹 */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, padding: '0 4px' }}>
+              <Input
+                size="small"
+                placeholder="新建收藏夹"
+                value={newFolderName}
+                onChange={e => setNewFolderName(e.target.value)}
+                onPressEnter={handleAddFolder}
+              />
+              <Button size="small" type="primary" icon={<PlusOutlined />} onClick={handleAddFolder} />
             </div>
-          </div>
-          {/* 新建收藏夹 */}
-          <div style={{ padding: '8px 12px 12px', display: 'flex', gap: 8 }}>
-            <Input
-              size="small"
-              placeholder="新建收藏夹"
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              onPressEnter={handleAddFolder}
-            />
-            <Button size="small" type="primary" icon={<PlusOutlined />} onClick={handleAddFolder} />
           </div>
         </div>
 
         {/* 右侧知识列表 */}
-        <div className="model-content">
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           {favoritedKnowledge.length === 0 ? (
             <div style={{ padding: 80 }}>
               <Empty

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Table, Button, Tag, Tabs, message, Space, Tooltip, Badge, Modal, Form, Input, Select, InputNumber, Drawer, Slider } from 'antd';
+import { Table, Button, Tag, Tabs, message, Space, Tooltip, Modal, Form, Input, Select, InputNumber, Drawer, Slider } from 'antd';
 import {
   ApiOutlined,
   ReloadOutlined, PlusOutlined, SettingOutlined,
@@ -273,42 +273,34 @@ export default function ModelConfigPage() {
       </div>
 
       {/* 左右结构 */}
-      <div className="model-config-layout">
+      <div className="flex flex-1 min-h-0">
         {/* 左侧供应商筛选 */}
-        <div className="model-sidebar">
-          <div className="model-sidebar-section">
-            <div className="model-sidebar-section-title">供应商</div>
-            <div className="model-provider-list">
-              {PROVIDERS.map(p => (
+        <div className="folder-tree-panel flex flex-col overflow-hidden w-[260px] min-w-[260px]">
+          <div className="flex-1 overflow-auto p-4">
+            {PROVIDERS.map(p => (
+              <div key={p.key} className="folder-tree-item-wrapper">
                 <div
-                  key={p.key}
-                  className={`model-provider-item ${activeProvider === p.key ? 'active' : ''}`}
+                  className={`folder-tree-item ${activeProvider === p.key ? 'active' : ''}`}
                   onClick={() => setActiveProvider(p.key)}
                 >
-                  <span className="model-provider-name">{p.label}</span>
-                  <Badge
-                    count={modelCounts[p.key] || 0}
-                    size="small"
-                    style={{
-                      backgroundColor: activeProvider === p.key ? '#dbeafe' : '#f1f5f9',
-                      color: activeProvider === p.key ? 'var(--primary)' : 'var(--text-muted)',
-                    }}
-                  />
+                  <span className="ft-icon">⚙️</span>
+                  <span className="ft-label">{p.label}</span>
+                  <span className="ft-count">{modelCounts[p.key] || 0}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
 
           {/* 向量化策略提示 */}
           {activeTab === 'Embedding' && (
-            <div className="model-sidebar-tip">
-              💡 向量化模型用于将知识内容转换为向量进行语义搜索，建议同时配置本地模型和云端模型作为备选。
+            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)' }}>
+              💡 向量化模型用于将知识内容转换为向量进行语义搜索
             </div>
           )}
         </div>
 
         {/* 右侧内容区 */}
-        <div className="model-content">
+        <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
           {/* 模型类型标签页 */}
           <Tabs
             activeKey={activeTab}

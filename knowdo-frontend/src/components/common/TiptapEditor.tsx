@@ -124,7 +124,7 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
         <span className="divider" />
 
-        <ToolbarButton onClick={() => editor.chain().focus().toggleTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="插入表格">
+        <ToolbarButton onClick={() => (editor.chain().focus() as any).toggleTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="插入表格">
           ⊞
         </ToolbarButton>
         <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} title="分割线">
