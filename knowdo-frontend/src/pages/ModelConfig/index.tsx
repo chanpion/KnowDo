@@ -260,18 +260,6 @@ export default function ModelConfigPage() {
         <span>模型管理</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>🤖 模型管理</h1>
-        <Space>
-          <Button icon={<ReloadOutlined />} loading={refreshingAll} onClick={handleRefreshAll}>
-            刷新状态
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
-            添加模型
-          </Button>
-        </Space>
-      </div>
-
       {/* 左右结构 */}
       <div className="flex flex-1 min-h-0">
         {/* 左侧供应商筛选 */}
@@ -301,6 +289,18 @@ export default function ModelConfigPage() {
 
         {/* 右侧内容区 */}
         <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+          {/* 顶部工具栏 */}
+          <div className="toolbar">
+            <div className="toolbar-spacer" />
+            <div className="toolbar-group">
+              <Button icon={<ReloadOutlined />} loading={refreshingAll} onClick={handleRefreshAll}>
+                刷新状态
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
+                添加模型
+              </Button>
+            </div>
+          </div>
           {/* 模型类型标签页 */}
           <Tabs
             activeKey={activeTab}
