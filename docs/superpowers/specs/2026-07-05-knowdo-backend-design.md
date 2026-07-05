@@ -22,7 +22,7 @@
 | AI SDK | Agno | Embedding 调用、模型连接测试 |
 | 业务数据库 | SQLite | 模型配置、知识库、文档元信息 |
 | 向量数据库 | ChromaDB | 分段文本 + 向量存储与检索 |
-| ORM | 原生 sqlite3 | 轻量，够用 |
+| ORM | SQLModel | 基于 SQLAlchemy + Pydantic，与 FastAPI 原生集成 |
 | 文档解析 | PyPDF2 / python-docx / markdown | 按文件类型选择解析器 |
 | 测试 | pytest + httpx | 单元 + 集成测试 |
 
@@ -44,15 +44,17 @@ knowdo-backend/
 │   │   ├── knowledge/
 │   │   │   ├── __init__.py
 │   │   │   ├── api.py          # 路由层
+│   │   │   ├── models.py       # SQLModel 表定义
+│   │   │   ├── schemas.py      # 请求/响应 Schema
 │   │   │   ├── service.py      # 业务逻辑 + 分段/向量化
-│   │   │   ├── repository.py   # 数据访问
-│   │   │   └── schemas.py      # 请求/响应 Schema
+│   │   │   └── repository.py   # 数据访问
 │   │   └── model/
 │   │       ├── __init__.py
 │   │       ├── api.py          # 路由层
+│   │       ├── models.py       # SQLModel 表定义
+│   │       ├── schemas.py      # 请求/响应 Schema
 │   │       ├── service.py      # 业务逻辑 + Agno 调用
-│   │       ├── repository.py   # 数据访问
-│   │       └── schemas.py      # 请求/响应 Schema
+│   │       └── repository.py   # 数据访问
 │   └── tests/
 │       ├── test_knowledge/
 │       │   ├── test_api.py
@@ -69,9 +71,9 @@ knowdo-backend/
 
 **分层关系**：
 ```
-api.py  →  service.py  →  repository.py  →  core/database.py
+api.py  →  service.py  →  repository.py  →  SQLModel (core/database.py)
   ↑                          ↑
-schemas.py              core/config.py
+schemas.py              models.py
 ```
 
 ---
@@ -127,67 +129,79 @@ schemas.py              core/config.py
 
 ## 数据模型
 
-### SQLite 表
+使用 SQLModel（SQLAlchemy + Pydantic）定义，每个模块 `models.py` 中维护。
 
-**model_config**（模型配置）
+### model 模块 — `modules/model/models.py`
 
-| 列 | 类型 | 说明 |
-|:---|:---|:---|
-| `id` | TEXT PK | UUID |
-| `name` | TEXT NOT NULL | 模型名称 |
-| `provider` | TEXT NOT NULL | 供应商 |
-| `type` | TEXT NOT NULL | LLM / Embedding / Reranker |
-| `api_url` | TEXT NOT NULL | API 地址 |
-| `api_key` | TEXT NOT NULL | 密钥（加密存储） |
-| `model_name` | TEXT NOT NULL | 模型标识 |
-| `max_tokens` | INTEGER | 最大 Token |
-| `concurrency` | INTEGER | 并发限制 |
-| `timeout` | INTEGER | 超时（秒） |
-| `retry` | INTEGER | 重试次数 |
-| `status` | TEXT NOT NULL DEFAULT 'offline' | online / offline / testing |
-| `last_test` | TEXT | 最近测试时间 |
-| `test_success` | INTEGER | 0/1 |
-| `test_latency` | TEXT | 延迟 |
-| `created_at` | TEXT NOT NULL | |
-| `updated_at` | TEXT NOT NULL | |
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
 
-**knowledge_base**（知识库）
+class ModelConfig(SQLModel, table=True):
+    __tablename__ = "model_config"
 
-| 列 | 类型 | 说明 |
-|:---|:---|:---|
-| `id` | TEXT PK | UUID |
-| `name` | TEXT NOT NULL | |
-| `description` | TEXT | |
-| `type` | TEXT NOT NULL | general / web / feishu |
-| `status` | TEXT NOT NULL DEFAULT 'pending' | pending / processing / completed / failed |
-| `icon` | TEXT | emoji 图标 |
-| `folder_id` | TEXT | 所属文件夹 |
-| `vector_model` | TEXT | 向量模型 |
-| `embedding_model` | TEXT | Embedding 模型 ID → model_config |
-| `chunk_mode` | TEXT DEFAULT 'smart' | smart / advanced / qa |
-| `chunk_size` | INTEGER DEFAULT 1024 | |
-| `chunk_overlap` | INTEGER DEFAULT 256 | |
-| `search_mode` | TEXT DEFAULT 'vector' | vector / keyword / hybrid |
-| `top_k` | INTEGER DEFAULT 5 | |
-| `score_threshold` | REAL DEFAULT 0.5 | |
-| `enable_rerank` | INTEGER DEFAULT 0 | |
-| `rerank_model` | TEXT | |
-| `created_at` | TEXT NOT NULL | |
-| `updated_at` | TEXT NOT NULL | |
+    id: str = Field(primary_key=True)
+    name: str
+    provider: str
+    type: str  # LLM / Embedding / Reranker
+    api_url: str
+    api_key: str  # 加密存储
+    model_name: str
+    max_tokens: Optional[int] = None
+    concurrency: Optional[int] = None
+    timeout: Optional[int] = None
+    retry: Optional[int] = None
+    status: str = Field(default="offline")  # online / offline / testing
+    last_test: Optional[str] = None
+    test_success: Optional[bool] = None
+    test_latency: Optional[str] = None
+    created_at: str
+    updated_at: str
+```
 
-**knowledge_document**（文档）
+### knowledge 模块 — `modules/knowledge/models.py`
 
-| 列 | 类型 | 说明 |
-|:---|:---|:---|
-| `id` | TEXT PK | UUID |
-| `knowledge_id` | TEXT FK | 关联知识库 |
-| `name` | TEXT NOT NULL | 文件名 |
-| `type` | TEXT NOT NULL | md / txt / pdf / docx / html / xls / xlsx / csv |
-| `size` | TEXT | 文件大小 |
-| `status` | TEXT DEFAULT 'pending' | pending / processing / completed / failed |
-| `content` | TEXT | 解析后文本内容 |
-| `error` | TEXT | 错误信息 |
-| `created_at` | TEXT NOT NULL | |
+```python
+from sqlmodel import SQLModel, Field
+from typing import Optional
+
+class KnowledgeBase(SQLModel, table=True):
+    __tablename__ = "knowledge_base"
+
+    id: str = Field(primary_key=True)
+    name: str
+    description: Optional[str] = None
+    type: str  # general / web / feishu
+    status: str = Field(default="pending")  # pending / processing / completed / failed
+    icon: Optional[str] = None
+    folder_id: Optional[str] = None
+    vector_model: Optional[str] = None
+    embedding_model: Optional[str] = None  # → model_config.id
+    chunk_mode: str = Field(default="smart")  # smart / advanced / qa
+    chunk_size: int = Field(default=1024)
+    chunk_overlap: int = Field(default=256)
+    search_mode: str = Field(default="vector")  # vector / keyword / hybrid
+    top_k: int = Field(default=5)
+    score_threshold: float = Field(default=0.5)
+    enable_rerank: bool = Field(default=False)
+    rerank_model: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class KnowledgeDocument(SQLModel, table=True):
+    __tablename__ = "knowledge_document"
+
+    id: str = Field(primary_key=True)
+    knowledge_id: str = Field(foreign_key="knowledge_base.id")
+    name: str
+    type: str  # md / txt / pdf / docx / html / xls / xlsx / csv
+    size: Optional[str] = None
+    status: str = Field(default="pending")  # pending / processing / completed / failed
+    content: Optional[str] = None
+    error: Optional[str] = None
+    created_at: str
+```
 
 ### ChromaDB Collection
 
