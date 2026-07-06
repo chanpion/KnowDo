@@ -10,3 +10,6 @@ markdown>=3.7
 python-multipart>=0.0.12
 pytest>=8.3.0
 httpx>=0.28.0
+
+# MySQL 支持: pip install pymysql
+# PostgreSQL 支持: pip install psycopg2-binary
