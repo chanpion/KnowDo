@@ -38,3 +38,24 @@ class KnowledgeDocument(SQLModel, table=True):
     content: Optional[str] = None
     error: Optional[str] = None
     created_at: str
+
+
+class KnowledgeFolder(SQLModel, table=True):
+    __tablename__ = "knowledge_folder"
+
+    id: str = Field(primary_key=True)
+    name: str
+    parent_id: Optional[str] = Field(default=None, foreign_key="knowledge_folder.id")
+    created_at: str
+
+
+class KnowledgeAuthorization(SQLModel, table=True):
+    __tablename__ = "knowledge_authorization"
+
+    id: str = Field(primary_key=True)
+    knowledge_id: str = Field(foreign_key="knowledge_base.id")
+    target_type: str  # user / department
+    target_id: str
+    target_name: str
+    permission: str  # view / use / maintain
+    created_at: str

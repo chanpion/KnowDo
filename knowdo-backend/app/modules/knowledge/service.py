@@ -4,7 +4,7 @@ from typing import Any, Optional
 from sqlmodel import Session
 from app.core.database import get_chroma_client
 from app.core.exceptions import ValidationException, ServiceException
-from app.modules.knowledge.models import KnowledgeBase, KnowledgeDocument
+from app.modules.knowledge.models import KnowledgeBase, KnowledgeDocument, KnowledgeFolder, KnowledgeAuthorization
 from app.modules.knowledge.repository import KnowledgeRepository
 from app.modules.knowledge.chunker import chunk_text
 from app.modules.knowledge.parser import parse_document
@@ -374,6 +374,57 @@ class KnowledgeService:
         except Exception:
             return 0
 
+    # ---- Folder Management ----
+
+    def list_folders(self) -> list[dict]:
+        folders = self.repo.list_folders()
+        return [_folder_to_dict(f, self.repo) for f in folders]
+
+    def create_folder(self, name: str, parent_id: Optional[str] = None) -> dict:
+        from datetime import datetime
+        folder = KnowledgeFolder(
+            id=str(uuid.uuid4()),
+            name=name,
+            parent_id=parent_id,
+            created_at=datetime.now().isoformat(),
+        )
+        created = self.repo.create_folder(folder)
+        return _folder_to_dict(created, self.repo)
+
+    def rename_folder(self, folder_id: str, name: str) -> dict:
+        updated = self.repo.rename_folder(folder_id, name)
+        return _folder_to_dict(updated, self.repo)
+
+    def delete_folder(self, folder_id: str) -> None:
+        self.repo.delete_folder(folder_id)
+
+    def move_folder(self, folder_id: str, target_parent_id: Optional[str]) -> dict:
+        updated = self.repo.move_folder(folder_id, target_parent_id)
+        return _folder_to_dict(updated, self.repo)
+
+    # ---- Authorization Management ----
+
+    def list_authorizations(self, knowledge_id: str) -> list[dict]:
+        auths = self.repo.list_authorizations(knowledge_id)
+        return [_auth_to_dict(a) for a in auths]
+
+    def create_authorization(self, data: dict) -> dict:
+        from datetime import datetime
+        auth = KnowledgeAuthorization(
+            id=str(uuid.uuid4()),
+            knowledge_id=data["knowledge_id"],
+            target_type=data["target_type"],
+            target_id=data["target_id"],
+            target_name=data["target_name"],
+            permission=data.get("permission", "view"),
+            created_at=datetime.now().isoformat(),
+        )
+        created = self.repo.create_authorization(auth)
+        return _auth_to_dict(created)
+
+    def delete_authorization(self, auth_id: str) -> None:
+        self.repo.delete_authorization(auth_id)
+
 
 def _kb_to_dict(kb: KnowledgeBase) -> dict[str, Any]:
     return {
@@ -410,4 +461,26 @@ def _doc_to_dict(doc: KnowledgeDocument) -> dict[str, Any]:
         "content": doc.content[:500] if doc.content else None,
         "error": doc.error,
         "created_at": doc.created_at,
+    }
+
+
+def _folder_to_dict(f: KnowledgeFolder, repo) -> dict[str, Any]:
+    return {
+        "id": f.id,
+        "name": f.name,
+        "parent_id": f.parent_id,
+        "knowledge_count": repo._count_kb_in_folder(f.id),
+        "created_at": f.created_at,
+    }
+
+
+def _auth_to_dict(a: KnowledgeAuthorization) -> dict[str, Any]:
+    return {
+        "id": a.id,
+        "knowledge_id": a.knowledge_id,
+        "target_type": a.target_type,
+        "target_id": a.target_id,
+        "target_name": a.target_name,
+        "permission": a.permission,
+        "created_at": a.created_at,
     }

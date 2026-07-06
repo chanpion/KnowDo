@@ -6,6 +6,8 @@ from app.modules.knowledge.schemas import (
     KnowledgeDeleteRequest, KnowledgeListRequest,
     DocListRequest, DocDetailRequest, DocDeleteRequest,
     DocChunksRequest, DocRechunkRequest, RecallTestRequest,
+    FolderCreateRequest, FolderRenameRequest, FolderDeleteRequest, FolderMoveRequest,
+    AuthCreateRequest, AuthDeleteRequest, AuthListRequest,
 )
 from app.modules.knowledge.service import KnowledgeService
 
@@ -76,6 +78,39 @@ async def knowledge_handler(request: Request, service: KnowledgeService = Depend
 
     elif action == "doc_upload":
         return {"code": 400, "data": None, "message": "doc_upload must use multipart form"}
+
+    elif action == "folder_list":
+        return {"code": 0, "data": service.list_folders(), "message": "ok"}
+
+    elif action == "folder_create":
+        req = FolderCreateRequest(**body)
+        return {"code": 0, "data": service.create_folder(req.name, req.parent_id), "message": "ok"}
+
+    elif action == "folder_rename":
+        req = FolderRenameRequest(**body)
+        return {"code": 0, "data": service.rename_folder(req.id, req.name), "message": "ok"}
+
+    elif action == "folder_delete":
+        req = FolderDeleteRequest(**body)
+        service.delete_folder(req.id)
+        return {"code": 0, "data": None, "message": "ok"}
+
+    elif action == "folder_move":
+        req = FolderMoveRequest(**body)
+        return {"code": 0, "data": service.move_folder(req.id, req.target_parent_id), "message": "ok"}
+
+    elif action == "auth_list":
+        req = AuthListRequest(**body)
+        return {"code": 0, "data": service.list_authorizations(req.knowledge_id), "message": "ok"}
+
+    elif action == "auth_create":
+        req = AuthCreateRequest(**body)
+        return {"code": 0, "data": service.create_authorization(req.model_dump()), "message": "ok"}
+
+    elif action == "auth_delete":
+        req = AuthDeleteRequest(**body)
+        service.delete_authorization(req.id)
+        return {"code": 0, "data": None, "message": "ok"}
 
     return {"code": 400, "data": None, "message": f"Unknown action: {action}"}
 

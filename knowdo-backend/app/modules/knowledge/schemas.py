@@ -72,3 +72,38 @@ class RecallTestRequest(BaseModel):
     query: str
     top_k: int = 5
     search_mode: str = "vector"  # vector / keyword / hybrid
+
+
+class FolderCreateRequest(BaseModel):
+    name: str
+    parent_id: Optional[str] = None
+
+
+class FolderRenameRequest(BaseModel):
+    id: str
+    name: str
+
+
+class FolderDeleteRequest(BaseModel):
+    id: str
+
+
+class FolderMoveRequest(BaseModel):
+    id: str
+    target_parent_id: Optional[str] = None
+
+
+class AuthCreateRequest(BaseModel):
+    knowledge_id: str
+    target_type: str  # user / department
+    target_id: str
+    target_name: str
+    permission: str = "view"  # view / use / maintain
+
+
+class AuthDeleteRequest(BaseModel):
+    id: str
+
+
+class AuthListRequest(BaseModel):
+    knowledge_id: str
