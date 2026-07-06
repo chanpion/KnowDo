@@ -1,30 +1,28 @@
 import { useState } from 'react';
 import { Button, Input, Tag, Empty, message, Divider } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, RollbackOutlined } from '@ant-design/icons';
-import { useAppStore } from '@/store';
-import type { ReviewItem, Knowledge } from '@/types';
+import { useReviewQueue, useApproveArticle, useRejectArticle, useReturnForEdit } from '@/hooks/use-article';
+import type { ReviewItem } from '@/types';
 
 export default function ReviewPage() {
-  const { reviewQueue, knowledgeList, approveKnowledge, rejectKnowledge, returnForEdit } = useAppStore();
+  const { data: reviewQueue = [] } = useReviewQueue();
+  const approveArticle = useApproveArticle();
+  const rejectArticle = useRejectArticle();
+  const returnForEdit = useReturnForEdit();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reviewComment, setReviewComment] = useState('');
 
-  // 从 knowledgeList 中找到对应知识（如果有的话）
-  const selectedReview = reviewQueue.find(r => r.id === selectedId);
-  const relatedKnowledge = selectedReview
-    ? knowledgeList.find(k => k.title === selectedReview.title)
-    : null;
+  const selectedReview = (reviewQueue as any[]).find(r => r.id === selectedId);
+  const relatedArticle = null; // article can be loaded on demand
 
   const handleApprove = () => {
-    if (!relatedKnowledge) {
-      if (selectedReview) {
-        message.success(`《${selectedReview.title}》已审核通过`);
-      }
-      if (selectedId) setSelectedId(null);
-      return;
+    if (!selectedReview) return;
+    const articleId = selectedReview.articleId;
+    if (articleId) {
+      approveArticle.mutate(articleId, { onSuccess: () => message.success('审核通过，文章已发布') });
+    } else {
+      message.success(`《${selectedReview.title}》已审核通过`);
     }
-    approveKnowledge(relatedKnowledge.id);
-    message.success('审核通过，知识已发布');
     setSelectedId(null);
     setReviewComment('');
   };
@@ -34,10 +32,10 @@ export default function ReviewPage() {
       message.warning('请填写驳回原因');
       return;
     }
-    if (relatedKnowledge) {
-      rejectKnowledge(relatedKnowledge.id, reviewComment);
-    } else if (selectedReview) {
-      message.success(`《${selectedReview.title}》已驳回`);
+    if (selectedReview?.articleId) {
+      rejectArticle.mutate({ id: selectedReview.articleId, reason: reviewComment }, { onSuccess: () => message.success('已驳回') });
+    } else {
+      message.success(`《${selectedReview?.title}》已驳回`);
     }
     setSelectedId(null);
     setReviewComment('');
@@ -48,10 +46,10 @@ export default function ReviewPage() {
       message.warning('请填写修改意见');
       return;
     }
-    if (relatedKnowledge) {
-      returnForEdit(relatedKnowledge.id, reviewComment);
-    } else if (selectedReview) {
-      message.success(`《${selectedReview.title}》已退回修改`);
+    if (selectedReview?.articleId) {
+      returnForEdit.mutate({ id: selectedReview.articleId, feedback: reviewComment }, { onSuccess: () => message.success('已退回修改') });
+    } else {
+      message.success(`《${selectedReview?.title}》已退回修改`);
     }
     setSelectedId(null);
     setReviewComment('');
@@ -111,18 +109,18 @@ export default function ReviewPage() {
                   作者: {selectedReview.author} · {selectedReview.authorDept} · 提交时间: {selectedReview.submitTime}
                 </div>
                 <Tag color="blue">{selectedReview.category}</Tag>
-                {relatedKnowledge && (
+                {relatedArticle && (
                   <div style={{ marginTop: 16, padding: 16, background: 'var(--bg-page)', borderRadius: 8, maxHeight: 300, overflow: 'auto' }}>
                     <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
-                      {relatedKnowledge.content.substring(0, 1000)}
-                      {relatedKnowledge.content.length > 1000 && '...'}
+                      {relatedArticle.content.substring(0, 1000)}
+                      {relatedArticle.content.length > 1000 && '...'}
                     </div>
                   </div>
                 )}
-                {relatedKnowledge?.attachments && relatedKnowledge.attachments.length > 0 && (
+                {relatedArticle?.attachments && relatedArticle.attachments.length > 0 && (
                   <div style={{ marginTop: 12 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>📎 附件</div>
-                    {relatedKnowledge.attachments.map((att, idx) => (
+                    {relatedArticle.attachments.map((att, idx) => (
                       <div key={idx} style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                         {att.name} ({att.size})
                       </div>

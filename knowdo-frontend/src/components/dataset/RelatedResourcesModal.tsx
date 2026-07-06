@@ -1,22 +1,22 @@
 import { Modal, Table, Tag, Typography } from 'antd';
 import { RobotOutlined, ApartmentOutlined } from '@ant-design/icons';
-import { useAppStore } from '@/store';
+import { useAppStoreLegacy } from '@/store';
 import type { RelatedResource } from '@/types';
 
 const { Text } = Typography;
 
 interface RelatedResourcesModalProps {
   open: boolean;
-  datasetId: string;
+  knowledgeBaseId: string;
   onClose: () => void;
 }
 
-export default function RelatedResourcesModal({ open, datasetId, onClose }: RelatedResourcesModalProps) {
-  const relatedResources = useAppStore((s) => s.relatedResources);
-  const datasets = useAppStore((s) => s.datasets);
+export default function RelatedResourcesModal({ open, knowledgeBaseId, onClose }: RelatedResourcesModalProps) {
+  const relatedResources = useAppStoreLegacy((s) => s.relatedResources);
+  const knowledgeBases = useAppStoreLegacy((s) => s.knowledgeBases);
 
-  const dataset = datasets.find((ds) => ds.id === datasetId);
-  // 所有关联资源统一展示（后续可根据 datasetId 过滤）
+  const kb = knowledgeBases.find((ds) => ds.id === knowledgeBaseId);
+  // 所有关联资源统一展示（后续可根据 knowledgeBaseId 过滤）
   const resources = relatedResources;
 
   const columns = [
@@ -58,7 +58,7 @@ export default function RelatedResourcesModal({ open, datasetId, onClose }: Rela
       title={
         <span>
           关联资源
-          {dataset && <Text type="secondary" className="ml-2">- {dataset.name}</Text>}
+          {kb && <Text type="secondary" className="ml-2">- {kb.name}</Text>}
         </span>
       }
       open={open}

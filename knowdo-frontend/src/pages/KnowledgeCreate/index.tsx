@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Button, Input, Select, message, Modal, Typography } from 'antd';
+import { Button, Input, Select, DatePicker, Radio, message, Typography, Upload } from 'antd';
 import {
   FileTextOutlined, LinkOutlined, PictureOutlined,
   VideoCameraOutlined, QuestionCircleOutlined, SoundOutlined,
   LeftOutlined, RightOutlined, CheckOutlined,
   DatabaseOutlined, GlobalOutlined, CloudUploadOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import { useAppStore } from '@/store';
-import { TAG_LIBRARY, CATEGORY_TREE } from '@/mock/data';
-import TiptapEditor from '@/components/common/TiptapEditor';
-import type { KnowledgeType, CategoryNode, DraftItem, DatasetType } from '@/types';
+import { useAppStoreLegacy } from '@/store';
+import { useCreateKnowledgeBase, useUpdateKnowledgeBase, useKnowledgeBaseList } from '@/hooks/use-knowledgebase';
+import { useCreateArticle, useUpdateArticle, useArticleDetail } from '@/hooks/use-article';
+import { useTagList } from '@/hooks/use-tags';
+import { useCategoryTree } from '@/hooks/use-categories';
+import type { ArticleType, CategoryNode, DraftItem, KnowledgeBaseType, Attachment } from '@/types';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const TYPE_OPTIONS = [
   { key: 'doc', label: '文档', desc: '富文本文档', icon: <FileTextOutlined style={{ fontSize: 36, color: '#1a56db' }} /> },
@@ -22,6 +25,15 @@ const TYPE_OPTIONS = [
   { key: 'link', label: '链接', desc: '外部资源链接', icon: <LinkOutlined style={{ fontSize: 36, color: '#7c3aed' }} /> },
   { key: 'qa', label: '问答', desc: 'Q&A 形式', icon: <QuestionCircleOutlined style={{ fontSize: 36, color: '#be123c' }} /> },
 ];
+
+const TYPE_FILE_ACCEPTS: Record<string, { accept: string; hint: string }> = {
+  doc: { accept: '.pdf,.doc,.docx,.txt,.md,.html,.htm,.xls,.xlsx,.csv', hint: '支持 PDF、Word、Excel、Markdown、TXT、HTML 等格式' },
+  image: { accept: '.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg', hint: '支持 JPG、PNG、GIF、WebP、SVG 等图片格式' },
+  video: { accept: '.mp4,.mov,.avi,.wmv,.flv,.mkv,.webm', hint: '支持 MP4、MOV、AVI、MKV 等视频格式' },
+  audio: { accept: '.mp3,.wav,.flac,.aac,.ogg,.wma,.m4a', hint: '支持 MP3、WAV、FLAC、AAC 等音频格式' },
+  link: { accept: '.url,.webloc,.html,.htm', hint: '支持书签文件、HTML 等链接格式' },
+  qa: { accept: '.json,.csv,.xlsx,.xls,.txt', hint: '支持 JSON、CSV、Excel 等 Q&A 数据格式' },
+};
 
 const datasetTypeOptions = [
   {
@@ -60,16 +72,16 @@ function genDraftId() {
 
 function DatasetCreatePanel() {
   const navigate = useNavigate();
-  const addDataset = useAppStore((s) => s.addDataset);
+  const createKnowledgeBase = useCreateKnowledgeBase();
 
-  const [selectedType, setSelectedType] = useState<DatasetType | null>(null);
+  const [selectedType, setSelectedType] = useState<KnowledgeBaseType | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [vectorModel, setVectorModel] = useState('');
   const [webUrl, setWebUrl] = useState('');
   const [webSelector, setWebSelector] = useState('');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       message.warning('请输入知识库名称');
       return;
@@ -83,19 +95,22 @@ function DatasetCreatePanel() {
       return;
     }
 
-    const newDatasetId = addDataset({
-      name: name.trim(),
-      description: description.trim(),
-      type: selectedType!,
-      vectorModel,
-      webUrl: selectedType === 'web' ? webUrl.trim() : undefined,
-      webSelector: selectedType === 'web' ? webSelector.trim() || undefined : undefined,
-      folderId: 'ds-folder-1',
-      documents: [],
-    });
-
-    message.success('知识库创建成功！');
-    navigate(`/detail/${newDatasetId}`);
+    try {
+      const result = await createKnowledgeBase.mutateAsync({
+        name: name.trim(),
+        description: description.trim(),
+        type: selectedType!,
+        vectorModel,
+        webUrl: selectedType === 'web' ? webUrl.trim() : undefined,
+        webSelector: selectedType === 'web' ? webSelector.trim() || undefined : undefined,
+        folderId: 'ds-folder-1',
+        documents: [],
+      });
+      message.success('知识库创建成功！');
+      navigate(`/detail/${result.id}`);
+    } catch {
+      message.error('知识库创建失败');
+    }
   };
 
   return (
@@ -222,25 +237,60 @@ function ArticleCreatePanel() {
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('edit');
   const draftId = searchParams.get('draft');
-  const presetDatasetId = searchParams.get('dataset');
-  const { addKnowledge, updateKnowledge, user, knowledgeList, datasets } = useAppStore();
+  const presetKnowledgeBaseId = searchParams.get('dataset');
+  const { user } = useAppStoreLegacy();
   const [currentStep, setCurrentStep] = useState(0);
 
-  // 编辑模式：回填原内容
-  const editKnowledge = editId ? (knowledgeList.find(k => k.id === editId) || null) : null;
-  const isEditMode = !!editKnowledge;
+  // Hooks for data fetching
+  const createArticle = useCreateArticle();
+  const updateArticleHook = useUpdateArticle();
+  const updateKnowledgeBaseHook = useUpdateKnowledgeBase();
+  const { data: kbListData } = useKnowledgeBaseList();
+  const kbList = kbListData?.items || [];
+  const { data: tagData } = useTagList();
+  const tagLibrary = tagData || [];
+  const { data: categoryData } = useCategoryTree();
+  const categoryTree = categoryData || [];
 
-  // 表单数据
-  const [type, setType] = useState<KnowledgeType>(editKnowledge?.type || 'doc');
-  const [title, setTitle] = useState(editKnowledge?.title || '');
-  const [categoryId, setCategoryId] = useState<string | undefined>(editKnowledge?.categoryId);
-  const [selectedTags, setSelectedTags] = useState<string[]>(editKnowledge?.tags || []);
-  const [content, setContent] = useState(editKnowledge?.content || '');
-  const [summary, setSummary] = useState(editKnowledge?.summary || '');
-  const [publishScope, setPublishScope] = useState(editKnowledge?.publishScope || '全行可见');
-  const [datasetId, setDatasetId] = useState<string | undefined>(editKnowledge?.datasetId || presetDatasetId || undefined);
+  // Edit mode: fetch article detail
+  const { data: editArticle, isLoading: editLoading } = useArticleDetail(editId || '');
+  const isEditMode = !!editId;
 
-  // 草稿恢复
+  // Form data
+  const [type, setType] = useState<ArticleType>('doc');
+  const [title, setTitle] = useState('');
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [content, setContent] = useState('');
+  const [summary, setSummary] = useState('');
+  const [publishScope, setPublishScope] = useState('全行可见');
+  const [targetPositions, setTargetPositions] = useState<string[]>([]);
+  const [validPeriodType, setValidPeriodType] = useState<'forever' | 'limited'>('forever');
+  const [validStart, setValidStart] = useState<string>('');
+  const [validEnd, setValidEnd] = useState<string>('');
+  const [aiTagsLoading, setAiTagsLoading] = useState(false);
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState<string | undefined>(undefined);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('text-embedding-v1');
+
+  // Populate form fields in edit mode
+  useEffect(() => {
+    if (editArticle) {
+      setType(editArticle.type || 'doc');
+      setTitle(editArticle.title || '');
+      setCategoryId(editArticle.categoryId);
+      setSelectedTags(editArticle.tags || []);
+      setContent(editArticle.content || '');
+      setSummary(editArticle.summary || '');
+      setPublishScope(editArticle.publishScope || '全行可见');
+      setKnowledgeBaseId(editArticle.knowledgeBaseId || presetKnowledgeBaseId || undefined);
+      setAttachments(editArticle.attachments || []);
+    } else if (presetKnowledgeBaseId) {
+      setKnowledgeBaseId(presetKnowledgeBaseId);
+    }
+  }, [editArticle, presetKnowledgeBaseId]);
+
+  // Draft recovery
   useEffect(() => {
     if (draftId) {
       const drafts: DraftItem[] = JSON.parse(localStorage.getItem('knowdo_drafts') || '[]');
@@ -253,13 +303,16 @@ function ArticleCreatePanel() {
         if (draft.data.content) setContent(draft.data.content);
         if (draft.data.summary) setSummary(draft.data.summary);
         if (draft.data.publishScope) setPublishScope(draft.data.publishScope);
+        if (draft.data.validPeriodType !== undefined) setValidPeriodType(draft.data.validPeriodType);
+        if (draft.data.validStart) setValidStart(draft.data.validStart);
+        if (draft.data.validEnd) setValidEnd(draft.data.validEnd);
         const remaining = drafts.filter(d => d.id !== draftId);
         localStorage.setItem('knowdo_drafts', JSON.stringify(remaining));
       }
     }
   }, [draftId]);
 
-  // 草稿自动保存（每30秒）
+  // Draft auto-save every 30 seconds
   useEffect(() => {
     if (isEditMode) return;
     const interval = setInterval(() => {
@@ -269,7 +322,7 @@ function ArticleCreatePanel() {
         id: genDraftId(),
         title: title.trim() || '未命名草稿',
         type,
-        data: { title, categoryId, tags: selectedTags, content, summary, publishScope, type },
+        data: { title, categoryId, tags: selectedTags, content, summary, publishScope, type, validPeriodType, validStart, validEnd },
         updatedAt: new Date().toISOString(),
       };
       const existingIdx = drafts.findIndex(d => d.title === draftData.title);
@@ -283,8 +336,36 @@ function ArticleCreatePanel() {
     return () => clearInterval(interval);
   }, [title, content, type, categoryId, selectedTags, summary, publishScope, isEditMode]);
 
-  const categoryOptions = flattenCategories(CATEGORY_TREE);
-  const datasetOptions = datasets.map(ds => ({ value: ds.id, label: ds.name }));
+  const categoryOptions = flattenCategories(categoryTree);
+  const datasetOptions = kbList.map(ds => ({ value: ds.id, label: ds.name }));
+
+  const handleAiTagRecommend = () => {
+    if (!title.trim() && !content.trim()) {
+      message.warning('请先输入标题或正文内容');
+      return;
+    }
+    setAiTagsLoading(true);
+    setTimeout(() => {
+      const combinedText = (title + ' ' + content).toLowerCase();
+      const matchingTags = tagLibrary.filter((tag: any) =>
+        combinedText.includes((tag.name || tag).replace(/[制度文件|操作手册|培训资料|风险控制|合规要求|案例分享|技术方案|年度报告|政策解读|最佳实践|FAQ|业务流程]/g, '').toLowerCase())
+      ).map((t: any) => t.name || t);
+
+      const recommended = matchingTags.length >= 2
+        ? matchingTags.slice(0, 3)
+        : tagLibrary
+            .filter((t: any) => (t.name || t).includes('制度') || (t.name || t).includes('手册') || (t.name || t).includes('业务'))
+            .map((t: any) => t.name || t)
+            .slice(0, 3);
+
+      setSelectedTags(prev => {
+        const newTags = recommended.filter((t: string) => !prev.includes(t));
+        return [...prev, ...newTags];
+      });
+      setAiTagsLoading(false);
+      message.success(`AI 推荐了 ${recommended.length} 个标签`);
+    }, 1200);
+  };
 
   const handleSaveDraft = () => {
     const drafts: DraftItem[] = JSON.parse(localStorage.getItem('knowdo_drafts') || '[]');
@@ -300,16 +381,12 @@ function ArticleCreatePanel() {
     message.success('草稿已保存');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       message.warning('请输入知识标题');
       return;
     }
-    if (!categoryId) {
-      message.warning('请选择分类');
-      return;
-    }
-    if (!datasetId) {
+    if (!knowledgeBaseId) {
       message.warning('请选择所属知识库');
       return;
     }
@@ -317,61 +394,75 @@ function ArticleCreatePanel() {
     const selectedCat = categoryOptions.find(c => c.value === categoryId);
     const typeLabelMap: Record<string, string> = { doc: '文档', image: '图片', video: '视频', audio: '音频', link: '链接', qa: '问答' };
     const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const generatedContent = content || (attachments.length > 0 ? attachments.map(a => a.name).join(', ') : '');
 
-    if (isEditMode && editKnowledge) {
-      const newVersionNum = `V${(parseFloat(editKnowledge.version.replace('V', '')) + 1).toFixed(1)}`;
-      updateKnowledge(editKnowledge.id, {
-        title,
-        type,
-        typeLabel: typeLabelMap[type],
-        content,
-        summary: summary || content.substring(0, 200),
-        category: selectedCat?.label || '',
-        categoryId,
-        tags: selectedTags,
-        publishScope,
-        updateTime: now,
-        version: newVersionNum,
-        status: 'pending_review',
-        datasetId,
-      });
+    try {
+      if (isEditMode && editArticle) {
+        const newVersionNum = `V${(parseFloat(editArticle.version.replace('V', '')) + 1).toFixed(1)}`;
+        await updateArticleHook.mutateAsync({
+          id: editArticle.id,
+          title,
+          type,
+          typeLabel: typeLabelMap[type],
+          content: generatedContent,
+          summary: summary || generatedContent.substring(0, 200),
+          category: selectedCat?.label || '',
+          categoryId: categoryId || '',
+          tags: selectedTags,
+          publishScope: publishScope === '特定岗位可见' ? `特定岗位可见(${targetPositions.join('、')})` : publishScope,
+          validPeriod: validPeriodType === 'forever' ? '永久有效' : `${validStart} ~ ${validEnd}`,
+          validStart: validPeriodType === 'limited' ? validStart : undefined,
+          validEnd: validPeriodType === 'limited' ? validEnd : undefined,
+          updateTime: now,
+          version: newVersionNum,
+          status: 'pending_review',
+          knowledgeBaseId,
+          attachments,
+        });
+      } else {
+        await createArticle.mutateAsync({
+          title,
+          type,
+          typeLabel: typeLabelMap[type],
+          content: generatedContent,
+          summary: summary || generatedContent.substring(0, 200),
+          category: selectedCat?.label || '',
+          categoryId: categoryId || '',
+          tags: selectedTags,
+          author: user.name,
+          authorDept: user.department,
+          publishTime: now,
+          updateTime: now,
+          version: 'V1.0',
+          status: 'pending_review',
+          viewCount: 0,
+          likeCount: 0,
+          commentCount: 0,
+          favoriteCount: 0,
+          isLiked: false,
+          isFavorited: false,
+          publishScope: publishScope === '特定岗位可见' ? `特定岗位可见(${targetPositions.join('、')})` : publishScope,
+          validPeriod: validPeriodType === 'forever' ? '永久有效' : `${validStart} ~ ${validEnd}`,
+          validStart: validPeriodType === 'limited' ? validStart : undefined,
+          validEnd: validPeriodType === 'limited' ? validEnd : undefined,
+          attachments,
+          comments: [],
+          versions: [],
+          knowledgeBaseId,
+        });
+      }
+
+      // Update the knowledge base embedding model
+      if (knowledgeBaseId) {
+        await updateKnowledgeBaseHook.mutateAsync({ id: knowledgeBaseId, embeddingModel: selectedModel });
+      }
+
       message.success('文章已提交审核');
-    } else {
-      addKnowledge({
-        id: `k-new-${Date.now()}`,
-        title,
-        type,
-        typeLabel: typeLabelMap[type],
-        content,
-        summary: summary || content.substring(0, 200),
-        category: selectedCat?.label || '',
-        categoryId,
-        tags: selectedTags,
-        author: user.name,
-        authorDept: user.department,
-        publishTime: now,
-        updateTime: now,
-        version: 'V1.0',
-        status: 'pending_review',
-        viewCount: 0,
-        likeCount: 0,
-        commentCount: 0,
-        favoriteCount: 0,
-        isLiked: false,
-        isFavorited: false,
-        publishScope,
-        validPeriod: '永久有效',
-        attachments: [],
-        comments: [],
-        versions: [],
-        datasetId,
-      });
-      message.success('文章已提交审核');
+      navigate(`/detail/${knowledgeBaseId}`);
+    } catch {
+      message.error('提交失败');
     }
-
-    navigate(`/detail/${datasetId}`);
   };
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
@@ -383,7 +474,7 @@ function ArticleCreatePanel() {
                 <div
                   key={opt.key}
                   className={`type-card ${type === opt.key ? 'selected' : ''}`}
-                  onClick={() => setType(opt.key as KnowledgeType)}
+                  onClick={() => setType(opt.key as ArticleType)}
                 >
                   <div className="type-icon">{opt.icon}</div>
                   <div className="type-name">{opt.label}</div>
@@ -393,29 +484,11 @@ function ArticleCreatePanel() {
             </div>
           </div>
         );
-
       case 1:
         return (
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>填写基本信息</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 600 }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                  所属知识库 <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <Select
-                  placeholder="选择目标知识库"
-                  value={datasetId}
-                  onChange={setDatasetId}
-                  options={datasetOptions}
-                  size="large"
-                  style={{ width: '100%' }}
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
                   知识标题 <span style={{ color: '#ef4444' }}>*</span>
@@ -429,23 +502,6 @@ function ArticleCreatePanel() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                  所属分类 <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <Select
-                  placeholder="选择知识分类"
-                  value={categoryId}
-                  onChange={setCategoryId}
-                  options={categoryOptions}
-                  size="large"
-                  style={{ width: '100%' }}
-                  showSearch
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
                   标签
                 </label>
                 <Select
@@ -453,10 +509,20 @@ function ArticleCreatePanel() {
                   placeholder="选择标签"
                   value={selectedTags}
                   onChange={setSelectedTags}
-                  options={TAG_LIBRARY.map(t => ({ value: t.name, label: t.name }))}
+                  options={tagLibrary.map((t: any) => ({ value: t.name || t, label: t.name || t }))}
                   size="large"
                   style={{ width: '100%' }}
                 />
+                <Button
+                  type="dashed"
+                  icon={<span>🤖</span>}
+                  onClick={handleAiTagRecommend}
+                  loading={aiTagsLoading}
+                  size="small"
+                  style={{ marginTop: 8 }}
+                >
+                  AI 推荐标签
+                </Button>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
@@ -480,197 +546,215 @@ function ArticleCreatePanel() {
                     { value: '全行可见', label: '🌐 全行可见' },
                     { value: '部门可见', label: '🏢 部门可见' },
                     { value: '仅自己', label: '🔒 仅自己' },
+                    { value: '特定岗位可见', label: '👥 特定岗位可见' },
                   ]}
                   style={{ width: '100%' }}
                   size="large"
+                />
+
+              </div>
+                <div style={{ marginTop: 16 }}>
+  <label style={{ display: 'block', marginBottom: 6 }}>
+    有效期
+  </label>
+  <Radio.Group value={validPeriodType} onChange={e => setValidPeriodType(e.target.value)}>
+    <Radio value='forever'>永久有效</Radio>
+    <Radio value='limited'>限时有效</Radio>
+  </Radio.Group>
+  {validPeriodType === 'limited' && (
+    <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
+      <DatePicker placeholder='开始日期' onChange={(_, ds) => setValidStart(ds as string)} />
+      <DatePicker placeholder='结束日期' onChange={(_, ds) => setValidEnd(ds as string)} />
+    </div>
+  )}
+
+              </div>
+            </div>
+          </div>
+        );
+      case 2:
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>上传文档</h3>
+            <div style={{ maxWidth: 600 }}>
+              <Upload.Dragger multiple showUploadList={false} accept={TYPE_FILE_ACCEPTS[type]?.accept || '.pdf,.doc,.docx,.txt,.md'}>
+                <p className='ant-upload-drag-icon'>
+                  <CloudUploadOutlined style={{ fontSize: 48, color: '#1a56db' }} />
+                </p>
+                <p className='ant-upload-text'>点击或拖拽文件到此区域上传</p>
+                <p className='ant-upload-hint'>{TYPE_FILE_ACCEPTS[type]?.hint || '支持 PDF、Word、Markdown、TXT 等格式'}</p>
+              </Upload.Dragger>
+            </div>
+          </div>
+        );
+      case 3:
+        return (
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>选择向量模型</h3>
+            <div style={{ maxWidth: 600 }}>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  嵌入模型 <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <Select
+                  placeholder="请选择向量模型"
+                  value={selectedModel || undefined}
+                  onChange={setSelectedModel}
+                  style={{ width: '100%' }}
+                  size="large"
+                  options={[
+                    { value: 'text-embedding-v1', label: 'text-embedding-v1（推荐）' },
+                    { value: 'text-embedding-3-small', label: 'text-embedding-3-small' },
+                    { value: 'text-embedding-3-large', label: 'text-embedding-3-large' },
+                    { value: 'bge-large-zh-v1.5', label: 'BAAI/bge-large-zh-v1.5' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  所属知识库 <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <Select
+                  placeholder="请选择知识库"
+                  value={knowledgeBaseId || undefined}
+                  onChange={setKnowledgeBaseId}
+                  style={{ width: '100%' }}
+                  size="large"
+                  options={datasetOptions}
                 />
               </div>
             </div>
           </div>
         );
-
-      case 2:
+      case 4:
         return (
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>编辑内容</h3>
-            <div className="ai-toolbar">
-              <button className="ai-btn" onClick={() => {
-                const hide = message.loading('AI 正在优化排版...', 0);
-                setTimeout(() => { hide(); message.success('排版已优化'); }, 1500);
-              }}>🤖 AI 优化排版</button>
-              <button className="ai-btn" onClick={() => {
-                if (!content.trim()) { message.warning('请先输入正文内容'); return; }
-                const autoSummary = content.trim().substring(0, 200) + (content.length > 200 ? '...' : '');
-                setSummary(autoSummary);
-                message.success('摘要已生成');
-              }}>📝 生成摘要</button>
-              <button className="ai-btn" onClick={() => {
-                const hide = message.loading('AI 正在翻译...', 0);
-                setTimeout(() => { hide(); message.success('翻译完成（模拟）'); }, 2000);
-              }}>🌐 智能翻译</button>
-              <button className="ai-btn" onClick={() => {
-                const hide = message.loading('AI 正在校对...', 0);
-                setTimeout(() => {
-                  hide();
-                  const issues = [
-                    '第3段："由于"与"因此"语义重复，建议删除其一',
-                    '第5段：发现拼写错误 "资原" → "资源"',
-                    '第8段：建议将长句拆分为两句，提高可读性',
-                  ];
-                  Modal.info({
-                    title: '智能校对结果',
-                    content: (
-                      <div>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: 12 }}>共发现 {issues.length} 个问题：</p>
-                        {issues.map((issue, i) => (
-                          <p key={i} style={{ padding: '8px 0', borderBottom: '1px solid var(--border-color)', fontSize: 13 }}>⚠️ {issue}</p>
-                        ))}
-                      </div>
-                    ),
-                    okText: '知道了',
-                  });
-                }, 1000);
-              }}>✅ 智能校对</button>
-            </div>
-            <div className="editor-container">
-              <TiptapEditor content={content} onChange={setContent} />
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>提交审核</h3>
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
-              <h4 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>确认提交</h4>
-              <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: 14 }}>
-                请确认以下信息无误后提交审核
-              </p>
-              <div style={{ background: 'var(--bg-page)', borderRadius: 8, padding: 20, textAlign: 'left', maxWidth: 400, margin: '0 auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>文章类型</span>
-                  <span style={{ fontWeight: 500 }}>{TYPE_OPTIONS.find(o => o.key === type)?.label}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>标题</span>
-                  <span style={{ fontWeight: 500, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>所属知识库</span>
-                  <span style={{ fontWeight: 500 }}>{datasets.find(ds => ds.id === datasetId)?.name}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>分类</span>
-                  <span style={{ fontWeight: 500 }}>{categoryOptions.find(c => c.value === categoryId)?.label}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>发布范围</span>
-                  <span style={{ fontWeight: 500 }}>{publishScope}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>字数</span>
-                  <span style={{ fontWeight: 500 }}>{content.length} 字</span>
-                </div>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>确认并提交</h3>
+            <div style={{ maxWidth: 600, background: '#f9fafb', borderRadius: 8, padding: 20 }}>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>文章类型：</Text>
+                <Text>{TYPE_OPTIONS.find(o => o.key === type)?.label || '文档'}</Text>
               </div>
-              <div style={{ marginTop: 24 }}>
-                <Button type="primary" size="large" icon={<CheckOutlined />} onClick={handleSubmit}>
-                  {isEditMode ? '提交更新' : '确认提交'}
-                </Button>
-                <Button size="large" style={{ marginLeft: 12 }} onClick={handleSaveDraft}>
-                  💾 保存草稿
-                </Button>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>标题：</Text>
+                <Text>{title || '（未填写）'}</Text>
               </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>标签：</Text>
+                <Text>{selectedTags.length > 0 ? selectedTags.join(', ') : '（无）'}</Text>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>发布范围：</Text>
+                <Text>{publishScope}</Text>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>有效期：</Text>
+                <Text>{validPeriodType === 'forever' ? '永久有效' : `${validStart} ~ ${validEnd}`}</Text>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>附件数量：</Text>
+                <Text>{attachments.length} 个</Text>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>向量模型：</Text>
+                <Text>{selectedModel}</Text>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 14 }}>所属知识库：</Text>
+                <Text>{kbList.find(k => k.id === knowledgeBaseId)?.name || '（未选择）'}</Text>
+              </div>
+            </div>
+            <div style={{ marginTop: 24 }}>
+              <Button type="primary" size="large" onClick={handleSubmit} loading={createArticle.isPending || updateArticleHook.isPending}>
+                提交审核
+              </Button>
             </div>
           </div>
         );
     }
   };
 
+  const stepLabels = ['选择类型', '基本信息', '上传文档', '选择模型', '确认提交'];
+
   return (
-    <div className="page-container">
-      <div className="breadcrumb">
-        <a href="/">首页</a>
-        <span className="separator">›</span>
-        <a href="/browse">知识库</a>
-        <span className="separator">›</span>
-        {datasetId && (
-          <>
-            <a href={`/detail/${datasetId}`}>{datasets.find(ds => ds.id === datasetId)?.name || '知识库'}</a>
-            <span className="separator">›</span>
-          </>
-        )}
-        <span>{isEditMode ? '编辑文章' : '创建文章'}</span>
+    <div className="max-w-4xl mx-auto py-6 px-4">
+      <div className="mb-6">
+        <Title level={3} className="!mb-1">
+          {editId ? '编辑知识' : '创建知识'}
+        </Title>
       </div>
-      <h1 className="page-title">{isEditMode ? '✏️ 编辑文章' : '✏️ 创建文章'}</h1>
 
-      <div className="steps-container">
-        <div className="step-indicator">
-          {['选择类型', '填写信息', '编辑内容', '提交审核'].map((label, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
-              <div className="step-item">
-                <div className={`step-number ${i < currentStep ? 'completed' : ''} ${i === currentStep ? 'active' : ''}`}>
-                  {i < currentStep ? '✓' : i + 1}
-                </div>
-                <span className={`step-label ${i === currentStep ? 'active' : ''}`}>{label}</span>
-              </div>
-              {i < 3 && <div className={`step-connector ${i < currentStep ? 'completed' : ''}`} />}
-            </div>
-          ))}
-        </div>
-
-        <div className="step-content">
-          {renderStepContent()}
-        </div>
-
-        <div className="step-actions">
-          <Button icon={<LeftOutlined />} disabled={currentStep === 0} onClick={() => setCurrentStep(s => s - 1)}>
-            上一步
-          </Button>
-          {currentStep < 3 ? (
-            <Button
-              type="primary"
-              icon={<RightOutlined />}
-              onClick={() => {
-                if (currentStep === 1 && !title.trim()) { message.warning('请输入知识标题'); return; }
-                if (currentStep === 1 && !categoryId) { message.warning('请选择分类'); return; }
-                if (currentStep === 1 && !datasetId) { message.warning('请选择所属知识库'); return; }
-                setCurrentStep(s => s + 1);
-              }}
+      <div className="flex items-center justify-center mb-8">
+        {stepLabels.map((label, idx) => (
+          <div key={idx} className="flex items-center">
+            <div
+              className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                idx <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}
             >
-              下一步
-            </Button>
-          ) : (
-            <div />
-          )}
-        </div>
+              {idx + 1}
+            </div>
+            <span className={`ml-2 text-sm ${
+              idx === currentStep ? 'text-blue-600 font-medium' : 'text-gray-400'
+            }`}>
+              {label}
+            </span>
+            {idx < stepLabels.length - 1 && (
+              <div className={`mx-4 w-16 h-0.5 ${
+                idx < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+              }`} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+        {renderStepContent()}
+      </div>
+
+      <div className="flex justify-between mt-6">
+        <Button
+          disabled={currentStep === 0}
+          onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
+          icon={<LeftOutlined />}
+        >
+          上一步
+        </Button>
+        {currentStep < 4 ? (
+          <Button
+            type="primary"
+            onClick={() => setCurrentStep(prev => Math.min(4, prev + 1))}
+          >
+            下一步 <RightOutlined />
+          </Button>
+        ) : (
+          <Button
+            type="primary"
+            onClick={handleSubmit}
+            loading={createArticle.isPending || updateArticleHook.isPending}
+          >
+            <CheckOutlined /> 提交审核
+          </Button>
+        )}
+      </div>
+
+      <div className="flex justify-end mt-4">
+        <Button onClick={handleSaveDraft}>
+          保存草稿
+        </Button>
       </div>
     </div>
   );
 }
 
-// ---- 主页面 ----
-
-export default function KnowledgeCreate() {
+function KnowledgeCreate() {
   const location = useLocation();
-  const isArticleMode = location.pathname.endsWith('/article');
+  const isArticlePath = location.pathname === '/create/article';
 
-  if (isArticleMode) {
-    return <ArticleCreatePanel />;
+  if (!isArticlePath) {
+    return <DatasetCreatePanel />;
   }
 
-  return (
-    <div className="page-container">
-      <div className="breadcrumb">
-        <a href="/">首页</a>
-        <span className="separator">›</span>
-        <a href="/browse">知识库</a>
-        <span className="separator">›</span>
-        <span>创建知识库</span>
-      </div>
-      <h1 className="page-title">🗂️ 创建知识库</h1>
-      <DatasetCreatePanel />
-    </div>
-  );
+  return <ArticleCreatePanel />;
 }
+
+export default KnowledgeCreate;

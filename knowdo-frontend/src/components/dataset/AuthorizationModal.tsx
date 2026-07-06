@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Modal, Table, Button, Select, Typography, Tag, Space, message } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useAppStore } from '@/store';
-import type { AuthPermission, DatasetAuthorization } from '@/types';
+import { useAppStoreLegacy } from '@/store';
+import type { AuthPermission, KnowledgeAuthorization } from '@/types';
 
 const { Text } = Typography;
 
 interface AuthorizationModalProps {
   open: boolean;
-  datasetId: string;
+  knowledgeBaseId: string;
   onClose: () => void;
 }
 
@@ -35,18 +35,18 @@ const MOCK_DEPARTMENTS = [
   { id: 'dept-it', name: '信息技术部' },
 ];
 
-export default function AuthorizationModal({ open, datasetId, onClose }: AuthorizationModalProps) {
-  const authorizations = useAppStore((s) => s.datasetAuthorizations);
-  const authorizeDataset = useAppStore((s) => s.authorizeDataset);
-  const revokeAuthorization = useAppStore((s) => s.revokeAuthorization);
-  const datasets = useAppStore((s) => s.datasets);
+export default function AuthorizationModal({ open, knowledgeBaseId, onClose }: AuthorizationModalProps) {
+  const authorizations = useAppStoreLegacy((s) => s.knowledgeAuthorizations);
+  const authorizeKnowledgeBase = useAppStoreLegacy((s) => s.authorizeKnowledgeBase);
+  const revokeAuthorization = useAppStoreLegacy((s) => s.revokeAuthorization);
+  const knowledgeBases = useAppStoreLegacy((s) => s.knowledgeBases);
 
   const [targetType, setTargetType] = useState<'user' | 'department'>('user');
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [permission, setPermission] = useState<AuthPermission>('view');
 
-  const dataset = datasets.find((ds) => ds.id === datasetId);
-  const datasetAuths = authorizations.filter((a) => a.datasetId === datasetId);
+  const kb = knowledgeBases.find((ds) => ds.id === knowledgeBaseId);
+  const kbAuths = authorizations.filter((a) => a.knowledgeBaseId === knowledgeBaseId);
 
   const handleAdd = () => {
     if (!selectedTarget) {
@@ -57,9 +57,9 @@ export default function AuthorizationModal({ open, datasetId, onClose }: Authori
     const target = targets.find((t) => t.id === selectedTarget);
     if (!target) return;
 
-    authorizeDataset({
+    authorizeKnowledgeBase({
       id: '',
-      datasetId,
+      knowledgeBaseId,
       targetType,
       targetId: target.id,
       targetName: target.name,
@@ -75,7 +75,7 @@ export default function AuthorizationModal({ open, datasetId, onClose }: Authori
       title: '授权对象',
       dataIndex: 'targetName',
       key: 'targetName',
-      render: (name: string, record: DatasetAuthorization) => (
+      render: (name: string, record: KnowledgeAuthorization) => (
         <Space>
           <Tag color={record.targetType === 'user' ? 'blue' : 'purple'}>
             {record.targetType === 'user' ? '用户' : '部门'}
@@ -103,7 +103,7 @@ export default function AuthorizationModal({ open, datasetId, onClose }: Authori
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_: unknown, record: DatasetAuthorization) => (
+      render: (_: unknown, record: KnowledgeAuthorization) => (
         <Button
           type="text"
           danger
@@ -125,7 +125,7 @@ export default function AuthorizationModal({ open, datasetId, onClose }: Authori
       title={
         <Space>
           <span>资源授权</span>
-          {dataset && <Text type="secondary">- {dataset.name}</Text>}
+          {kb && <Text type="secondary">- {kb.name}</Text>}
         </Space>
       }
       open={open}
@@ -182,7 +182,7 @@ export default function AuthorizationModal({ open, datasetId, onClose }: Authori
 
       {/* 已授权列表 */}
       <Table
-        dataSource={datasetAuths}
+        dataSource={kbAuths}
         columns={columns}
         rowKey="id"
         size="small"

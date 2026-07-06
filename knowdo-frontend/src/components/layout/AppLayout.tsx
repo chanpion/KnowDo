@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAppStore } from '@/store';
+import { useAppStoreLegacy } from '@/store';
+import { useNotificationList, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/use-notifications';
 import { Dropdown } from 'antd';
 import { EditOutlined, DeleteOutlined, StarOutlined, FileTextOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
@@ -13,7 +14,13 @@ const NAV_ITEMS = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useAppStore();
+  const { user } = useAppStoreLegacy();
+  const { data: notifData } = useNotificationList();
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+
+  const notifications = (notifData as any)?.items || [];
+  const unreadCount = (notifData as any)?.unreadCount || 0;
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -70,14 +77,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="notif-dropdown" style={{ right: -160 }}>
                 <div className="dropdown-header">
                   <span className="dropdown-title">消息通知</span>
-                  <a href="#" style={{ fontSize: 12, color: '#1a56db' }} onClick={(e) => { e.preventDefault(); markAllNotificationsRead(); }}>全部已读</a>
+                  <a href="#" style={{ fontSize: 12, color: '#1a56db' }} onClick={(e) => { e.preventDefault(); markAllRead.mutate(); }}>全部已读</a>
                 </div>
                 <div className="dropdown-body">
                   {notifications.map(n => (
                     <div
                       key={n.id}
                       className={`dropdown-item ${n.read ? '' : 'unread'}`}
-                      onClick={() => markNotificationRead(n.id)}
+                      onClick={() => markRead.mutate(n.id)}
                     >
                       <div className="notif-icon" style={{ background: n.read ? '#f1f5f9' : '#eff6ff' }}>{n.icon}</div>
                       <div className="notif-content">
@@ -89,7 +96,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   ))}
                 </div>
                 <div className="dropdown-footer">
-                  <a href="#">查看全部通知</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); setNotifOpen(false); navigate('/notifications'); }}>查看全部通知</a>
                 </div>
               </div>
             )}

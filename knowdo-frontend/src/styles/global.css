@@ -2782,3 +2782,37 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================
+   文档上传区域
+   ============================================ */
+.doc-upload-area .ant-upload-drag {
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  background: #fafbfc;
+  transition: all 0.2s;
+}
+.doc-upload-area .ant-upload-drag:hover {
+  border-color: var(--primary-light);
+  background: var(--primary-bg);
+}
+.doc-upload-area .ant-upload-drag.ant-upload-drag-hover {
+  border-color: var(--primary);
+  background: #e0f2fe;
+}
+
+/* 文档列表表格 */
+.doc-list-table .ant-table-thead > tr > th {
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.doc-list-table .ant-table-tbody > tr > td {
+  font-size: 13px;
+}
+.doc-list-table .ant-table-tbody > tr:hover > td {
+  background: #f8fafc;
+}

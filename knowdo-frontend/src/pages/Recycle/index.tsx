@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Table, Button, Popconfirm, Tag, Empty, message } from 'antd';
 import { UndoOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useAppStore } from '@/store';
-import type { Knowledge } from '@/types';
+import { useDeletedArticles, useRestoreArticle, useDeleteArticle } from '@/hooks/use-article';
+import type { Article } from '@/types';
 
 const TYPE_ICONS: Record<string, string> = { doc: '📄', image: '🖼️', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
 
@@ -13,15 +14,22 @@ function getRemainDays(deletedAt: string): number {
 }
 
 export default function RecyclePage() {
-  const { deletedKnowledgeList, restoreFromRecycle, permanentlyDeleteKnowledge } = useAppStore();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const { data, isLoading } = useDeletedArticles(page, pageSize);
+  const { mutate: restoreMutate } = useRestoreArticle();
+  const { mutate: deleteMutate } = useDeleteArticle();
+
+  const deletedArticles = data?.items || [];
+  const total = data?.total || 0;
 
   const handleRestore = (id: string) => {
-    restoreFromRecycle(id);
+    restoreMutate(id);
     message.success('知识已恢复');
   };
 
   const handlePermanentDelete = (id: string) => {
-    permanentlyDeleteKnowledge(id);
+    deleteMutate(id);
     message.success('知识已永久删除');
   };
 
@@ -31,7 +39,7 @@ export default function RecyclePage() {
       dataIndex: 'title',
       key: 'title',
       width: 280,
-      render: (title: string, record: Knowledge) => (
+      render: (title: string, record: Article) => (
         <div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -58,7 +66,7 @@ export default function RecyclePage() {
       title: '剩余天数',
       key: 'remain',
       width: 100,
-      render: (_: unknown, record: Knowledge) => {
+      render: (_: unknown, record: Article) => {
         const remain = getRemainDays(record.deletedAt || '');
         return (
           <span style={{
@@ -80,7 +88,7 @@ export default function RecyclePage() {
       title: '操作',
       key: 'action',
       width: 160,
-      render: (_: unknown, record: Knowledge) => (
+      render: (_: unknown, record: Article) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button size="small" icon={<UndoOutlined />} onClick={() => handleRestore(record.id)}>
             恢复
@@ -109,18 +117,29 @@ export default function RecyclePage() {
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {deletedKnowledgeList.length === 0 ? (
+        {!isLoading && deletedArticles.length === 0 ? (
           <div style={{ padding: 60, background: 'white', borderRadius: 8 }}>
             <Empty description="回收站为空" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           </div>
         ) : (
           <div style={{ background: 'white', borderRadius: 8, padding: '0 0 16px' }}>
             <Table
-              dataSource={deletedKnowledgeList}
+              dataSource={deletedArticles}
               columns={columns}
               rowKey="id"
-              pagination={false}
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                onChange: (p, ps) => {
+                  setPage(p);
+                  setPageSize(ps);
+                },
+                showSizeChanger: true,
+                showTotal: (t) => `共 ${t} 条`,
+              }}
               size="middle"
+              loading={isLoading}
             />
           </div>
         )}

@@ -1,4 +1,4 @@
-import type { User, CategoryNode, Tag, Knowledge, ModelConfig, RecommendedKnowledge, Notification, ReviewItem, DatasetAuthorization, RelatedResource } from '@/types';
+import type { User, CategoryNode, Tag, Article, ArticleVersion, ModelConfig, RecommendedArticle, Notification, ReviewItem, KnowledgeAuthorization, RelatedResource, KnowledgeBase, KnowledgeDocument, KnowledgeFolder } from '@/types';
 
 // 用户信息
 export const MOCK_USER: User = {
@@ -118,7 +118,7 @@ export const TAG_LIBRARY: Tag[] = [
 ];
 
 // 知识列表数据
-export const KNOWLEDGE_LIST: Knowledge[] = [
+export const ARTICLE_LIST: Article[] = [
   {
     id: 'k-001', title: '2026年度企业信贷风险评估操作指引', type: 'doc', typeLabel: '文档',
     content: '## 一、概述\n\n本指引旨在规范企业信贷业务中的风险评估流程，确保信贷资产质量。\n\n## 二、评估流程\n\n### 2.1 贷前调查\n\n信贷人员应对借款企业进行全面调查，包括但不限于：\n- 企业基本情况及经营状况\n- 财务状况分析，包括近三年财务报表\n- 行业发展前景评估\n\n### 2.2 信用评级\n\n根据《企业信用评级管理办法》执行评级工作。\n\n## 三、风险控制措施\n\n建立完善的风险预警机制，定期对存量贷款进行风险排查。',
@@ -136,7 +136,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { id: 'cmt-1', author: '李建国', authorDept: '信贷业务部', content: '非常实用的指引，建议在贷后管理部分补充一些实际案例。', time: '2026-06-21 10:30', isAuthor: false },
       { id: 'cmt-2', author: '张明远', authorDept: '风险管理部', content: '感谢建议！我们正在整理典型案例，下一版本会加入。', time: '2026-06-21 11:00', isAuthor: true, replyTo: 'cmt-1' },
     ],
-    datasetId: 'ds-001',
+    knowledgeBaseId: 'ds-001',
   },
   {
     id: 'k-002', title: '定期存款利率调整政策解读（2026年Q3）', type: 'doc', typeLabel: '文档',
@@ -152,7 +152,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { id: 'cmt-3', author: '赵强', authorDept: '个人金融部', content: '请问贵宾客户的专属利率是否同步调整？', time: '2026-06-19 14:00', isAuthor: false },
       { id: 'cmt-4', author: '王丽华', authorDept: '存款业务部', content: '贵宾客户专属利率将另行通知，预计下周发布。', time: '2026-06-19 15:30', isAuthor: true, replyTo: 'cmt-3' },
     ],
-    datasetId: 'ds-004',
+    knowledgeBaseId: 'ds-004',
   },
   {
     id: 'k-003', title: '新员工入职信息安全培训手册', type: 'doc', typeLabel: '文档',
@@ -168,7 +168,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { name: '信息安全承诺书.docx', size: '320 KB' },
     ],
     comments: [],
-    datasetId: 'ds-004',
+    knowledgeBaseId: 'ds-004',
   },
   {
     id: 'k-004', title: '外汇交易风险对冲策略案例分析', type: 'link', typeLabel: '链接',
@@ -180,7 +180,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     status: 'published', viewCount: 789, likeCount: 67, commentCount: 5, favoriteCount: 34,
     isLiked: false, isFavorited: false, publishScope: '部门可见', validPeriod: '永久有效',
     attachments: [], comments: [],
-    datasetId: 'ds-003',
+    knowledgeBaseId: 'ds-003',
   },
   {
     id: 'k-005', title: '信贷审批流程图（2026修订版）', type: 'image', typeLabel: '图片',
@@ -193,7 +193,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: true, isFavorited: true, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [{ name: '信贷审批流程图_v2.1.png', size: '1.8 MB' }],
     comments: [],
-    datasetId: 'ds-001',
+    knowledgeBaseId: 'ds-001',
   },
   {
     id: 'k-006', title: '信用评级模型参数调整说明与影响评估', type: 'doc', typeLabel: '文档',
@@ -206,7 +206,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '全行可见', validPeriod: '2026-06-15 ~ 2026-12-31',
     attachments: [{ name: '评级模型参数说明_v1.0.docx', size: '3.2 MB' }],
     comments: [],
-    datasetId: 'ds-002',
+    knowledgeBaseId: 'ds-002',
   },
   {
     id: 'k-007', title: '个人理财产品销售合规操作手册', type: 'doc', typeLabel: '文档',
@@ -219,7 +219,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [{ name: '理财产品合规手册_v2.0.pdf', size: '4.5 MB' }],
     comments: [],
-    datasetId: 'ds-004',
+    knowledgeBaseId: 'ds-004',
   },
   {
     id: 'k-008', title: '2026年Q2内部审计常见问题汇总', type: 'qa', typeLabel: '问答',
@@ -231,7 +231,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     status: 'published', viewCount: 2890, likeCount: 178, commentCount: 9, favoriteCount: 56,
     isLiked: false, isFavorited: true, publishScope: '全行可见', validPeriod: '永久有效',
     attachments: [], comments: [],
-    datasetId: 'ds-002',
+    knowledgeBaseId: 'ds-002',
   },
   {
     id: 'k-009', title: '新员工入职培训系列视频（全集）', type: 'video', typeLabel: '视频',
@@ -248,7 +248,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
       { name: '培训视频_第三集_岗位技能.mp4', size: '398 MB' },
     ],
     comments: [],
-    datasetId: 'ds-002',
+    knowledgeBaseId: 'ds-002',
   },
   {
     id: 'k-010', title: '跨境结算业务流程优化方案', type: 'doc', typeLabel: '文档',
@@ -261,7 +261,7 @@ export const KNOWLEDGE_LIST: Knowledge[] = [
     isLiked: false, isFavorited: false, publishScope: '部门可见', validPeriod: '永久有效',
     attachments: [{ name: '跨境结算优化方案_v1.0.docx', size: '1.5 MB' }],
     comments: [],
-    datasetId: 'ds-003',
+    knowledgeBaseId: 'ds-003',
   },
 ];
 
@@ -285,7 +285,7 @@ export const MODEL_LIST: Record<string, ModelConfig[]> = {
 };
 
 // 推荐知识
-export const RECOMMENDED_KNOWLEDGE: RecommendedKnowledge[] = [
+export const RECOMMENDED_ARTICLES: RecommendedArticle[] = [
   { id: 'k-r1', title: '企业贷款审批权限管理办法（2026版）', type: 'doc', summary: '明确各级审批权限和审批流程的最新管理办法。', viewCount: 2340, category: '公司业务 > 信贷业务 > 企业贷款' },
   { id: 'k-r2', title: '个人信用评分模型应用指南', type: 'doc', summary: '个人信贷业务中信用评分模型的使用规范。', viewCount: 1876, category: '风险管理 > 信用风险' },
   { id: 'k-r3', title: '外汇管理政策汇编（2026年6月更新）', type: 'link', summary: '最新外汇管理相关政策文件汇编。', viewCount: 1523, category: '公司业务 > 国际业务' },
@@ -310,14 +310,14 @@ export const REVIEW_QUEUE: ReviewItem[] = [
 ];
 
 // 热门知识
-export const getHotKnowledge = () => [...KNOWLEDGE_LIST].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
+export const getHotArticles = () => [...ARTICLE_LIST].sort((a, b) => b.viewCount - a.viewCount).slice(0, 10);
 
 // 最新知识
-export const getLatestKnowledge = () => [...KNOWLEDGE_LIST].sort((a, b) => new Date(b.publishTime).getTime() - new Date(a.publishTime).getTime()).slice(0, 10);
+export const getLatestArticles = () => [...ARTICLE_LIST].sort((a, b) => new Date(b.publishTime).getTime() - new Date(a.publishTime).getTime()).slice(0, 10);
 
 // 工具函数
-export function getKnowledgeById(id: string): Knowledge | null {
-  return KNOWLEDGE_LIST.find(k => k.id === id) || null;
+export function getArticleById(id: string): Article | null {
+  return ARTICLE_LIST.find(k => k.id === id) || null;
 }
 
 export function formatTime(dateStr: string): string {
@@ -350,35 +350,35 @@ export const VECTOR_MODELS = [
 ];
 
 // 知识库文件夹树（三级嵌套）
-export const DATASET_FOLDERS = [
+export const KNOWLEDGE_FOLDERS: KnowledgeFolder[] = [
   {
-    id: 'ds-folder-1', name: '产品知识库', parentId: null, datasetCount: 2, children: [
-      { id: 'ds-folder-1-1', name: '信贷产品', parentId: 'ds-folder-1', datasetCount: 1, children: [
-        { id: 'ds-folder-1-1-1', name: '企业信贷', parentId: 'ds-folder-1-1', datasetCount: 1 },
+    id: 'ds-folder-1', name: '产品知识库', parentId: null, knowledgeBaseCount: 2, children: [
+      { id: 'ds-folder-1-1', name: '信贷产品', parentId: 'ds-folder-1', knowledgeBaseCount: 1, children: [
+        { id: 'ds-folder-1-1-1', name: '企业信贷', parentId: 'ds-folder-1-1', knowledgeBaseCount: 1 },
       ]},
-      { id: 'ds-folder-1-2', name: '存款产品', parentId: 'ds-folder-1', datasetCount: 0 },
+      { id: 'ds-folder-1-2', name: '存款产品', parentId: 'ds-folder-1', knowledgeBaseCount: 0 },
     ],
   },
   {
-    id: 'ds-folder-2', name: '操作手册', parentId: null, datasetCount: 0, children: [
-      { id: 'ds-folder-2-1', name: '系统操作', parentId: 'ds-folder-2', datasetCount: 0 },
+    id: 'ds-folder-2', name: '操作手册', parentId: null, knowledgeBaseCount: 0, children: [
+      { id: 'ds-folder-2-1', name: '系统操作', parentId: 'ds-folder-2', knowledgeBaseCount: 0 },
     ],
   },
   {
-    id: 'ds-folder-3', name: '合规文档', parentId: null, datasetCount: 2, children: [
-      { id: 'ds-folder-3-1', name: '反洗钱', parentId: 'ds-folder-3', datasetCount: 0, children: [
-        { id: 'ds-folder-3-1-1', name: '客户尽职调查', parentId: 'ds-folder-3-1', datasetCount: 0 },
+    id: 'ds-folder-3', name: '合规文档', parentId: null, knowledgeBaseCount: 2, children: [
+      { id: 'ds-folder-3-1', name: '反洗钱', parentId: 'ds-folder-3', knowledgeBaseCount: 0, children: [
+        { id: 'ds-folder-3-1-1', name: '客户尽职调查', parentId: 'ds-folder-3-1', knowledgeBaseCount: 0 },
       ]},
-      { id: 'ds-folder-3-2', name: '数据安全', parentId: 'ds-folder-3', datasetCount: 0 },
+      { id: 'ds-folder-3-2', name: '数据安全', parentId: 'ds-folder-3', knowledgeBaseCount: 0 },
     ],
   },
   {
-    id: 'ds-folder-4', name: '飞书文档', parentId: null, datasetCount: 1,
+    id: 'ds-folder-4', name: '飞书文档', parentId: null, knowledgeBaseCount: 1,
   },
 ];
 
 // 知识库列表
-export const DATASETS = [
+export const KNOWLEDGE_BASES = [
   {
     id: 'ds-001',
     name: '企业信贷政策知识库',
@@ -389,7 +389,7 @@ export const DATASETS = [
     documents: [
       {
         id: 'doc-001',
-        datasetId: 'ds-001',
+        knowledgeBaseId: 'ds-001',
         name: '企业信贷风险评估指引.docx',
         size: '2.3 MB',
         type: 'docx' as const,
@@ -403,7 +403,7 @@ export const DATASETS = [
       },
       {
         id: 'doc-002',
-        datasetId: 'ds-001',
+        knowledgeBaseId: 'ds-001',
         name: '信贷审批流程图.pdf',
         size: '1.8 MB',
         type: 'pdf' as const,
@@ -441,7 +441,7 @@ export const DATASETS = [
     documents: [
       {
         id: 'doc-003',
-        datasetId: 'ds-002',
+        knowledgeBaseId: 'ds-002',
         name: '信用风险管理手册.md',
         size: '856 KB',
         type: 'md' as const,
@@ -479,7 +479,7 @@ export const DATASETS = [
     documents: [
       {
         id: 'doc-004',
-        datasetId: 'ds-003',
+        knowledgeBaseId: 'ds-003',
         name: '企业贷款产品页面',
         size: '156 KB',
         type: 'html' as const,
@@ -515,7 +515,7 @@ export const DATASETS = [
     documents: [
       {
         id: 'doc-005',
-        datasetId: 'ds-004',
+        knowledgeBaseId: 'ds-004',
         name: '反洗钱操作指引.pdf',
         size: '3.2 MB',
         type: 'pdf' as const,
@@ -527,7 +527,7 @@ export const DATASETS = [
       },
       {
         id: 'doc-006',
-        datasetId: 'ds-004',
+        knowledgeBaseId: 'ds-004',
         name: '合规检查清单.xlsx',
         size: '450 KB',
         type: 'xlsx' as const,
@@ -563,7 +563,7 @@ export const DATASETS = [
     documents: [
       {
         id: 'doc-007',
-        datasetId: 'ds-005',
+        knowledgeBaseId: 'ds-005',
         name: '客户投诉处理流程',
         size: '125 KB',
         type: 'docx' as const,
@@ -593,10 +593,10 @@ export const DATASETS = [
 ];
 
 // 资源授权数据
-export const DATASET_AUTHORIZATIONS: DatasetAuthorization[] = [
+export const KNOWLEDGE_AUTHORIZATIONS: KnowledgeAuthorization[] = [
   {
     id: 'auth-001',
-    datasetId: 'ds-001',
+    knowledgeBaseId: 'ds-001',
     targetType: 'user',
     targetId: 'user-li',
     targetName: '李建国',
@@ -605,7 +605,7 @@ export const DATASET_AUTHORIZATIONS: DatasetAuthorization[] = [
   },
   {
     id: 'auth-002',
-    datasetId: 'ds-001',
+    knowledgeBaseId: 'ds-001',
     targetType: 'department',
     targetId: 'dept-credit',
     targetName: '信贷业务部',
@@ -614,7 +614,7 @@ export const DATASET_AUTHORIZATIONS: DatasetAuthorization[] = [
   },
   {
     id: 'auth-003',
-    datasetId: 'ds-002',
+    knowledgeBaseId: 'ds-002',
     targetType: 'user',
     targetId: 'user-liu',
     targetName: '刘博文',

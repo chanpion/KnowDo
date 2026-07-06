@@ -35,8 +35,8 @@ export interface Tag {
   usageCount?: number;
 }
 
-// 知识版本
-export interface KnowledgeVersion {
+// 文章版本
+export interface ArticleVersion {
   id: string;
   versionNumber: string;
   content: string;
@@ -50,8 +50,8 @@ export interface KnowledgeVersion {
 export interface DraftItem {
   id: string;
   title: string;
-  type: KnowledgeType;
-  data: Partial<KnowledgeCreateForm> & { content?: string };
+  type: ArticleType;
+  data: Partial<ArticleCreateForm> & { content?: string; validPeriodType?: 'forever' | 'limited'; validStart?: string; validEnd?: string };
   updatedAt: string;
 }
 
@@ -59,14 +59,15 @@ export interface DraftItem {
 export interface FavoriteFolder {
   id: string;
   name: string;
-  knowledgeIds: string[];
+  articleIds: string[];
+  count?: number;
 }
 
-// 知识类型
-export type KnowledgeType = 'doc' | 'link' | 'image' | 'video' | 'audio' | 'qa';
+// 文章类型
+export type ArticleType = 'doc' | 'link' | 'image' | 'video' | 'audio' | 'qa';
 
-// 知识状态
-export type KnowledgeStatus = 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
+// 文章状态
+export type ArticleStatus = 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
 
 // 附件
 export interface Attachment {
@@ -85,11 +86,11 @@ export interface Comment {
   replyTo?: string;
 }
 
-// 知识条目
-export interface Knowledge {
+// 文章条目
+export interface Article {
   id: string;
   title: string;
-  type: KnowledgeType;
+  type: ArticleType;
   typeLabel: string;
   content: string;
   summary: string;
@@ -101,7 +102,7 @@ export interface Knowledge {
   publishTime: string;
   updateTime: string;
   version: string;
-  status: KnowledgeStatus;
+  status: ArticleStatus;
   viewCount: number;
   likeCount: number;
   commentCount: number;
@@ -110,12 +111,14 @@ export interface Knowledge {
   isFavorited: boolean;
   publishScope: string;
   validPeriod: string;
+  validStart?: string;
+  validEnd?: string;
   attachments: Attachment[];
   comments: Comment[];
-  versions?: KnowledgeVersion[];
+  versions?: ArticleVersion[];
   deletedAt?: string;
   folderId?: string;
-  datasetId: string;
+  knowledgeBaseId: string;
 }
 
 // 模型状态
@@ -148,8 +151,8 @@ export interface ModelConfig {
   testResult: ModelTestResult;
 }
 
-// 推荐知识
-export interface RecommendedKnowledge {
+// 推荐文章
+export interface RecommendedArticle {
   id: string;
   title: string;
   type: string;
@@ -191,9 +194,9 @@ export interface BreadcrumbItem {
 // Toast 类型
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-// 知识创建表单
-export interface KnowledgeCreateForm {
-  type: KnowledgeType;
+// 文章创建表单
+export interface ArticleCreateForm {
+  type: ArticleType;
   title: string;
   categoryId: string;
   tags: string[];
@@ -202,18 +205,18 @@ export interface KnowledgeCreateForm {
   publishScope: string;
   validPeriod: string;
   attachments: File[];
-  datasetId: string;
+  knowledgeBaseId: string;
 }
 
 // ============================================
-// 知识库（Dataset）相关类型
+// 知识库（KnowledgeBase）相关类型
 // ============================================
 
 // 知识库类型
-export type DatasetType = 'general' | 'web' | 'feishu';
+export type KnowledgeBaseType = 'general' | 'web' | 'feishu';
 
 // 知识库状态
-export type DatasetStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type KnowledgeBaseStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 // 文档分段策略模式
 export type ChunkMode = 'smart' | 'advanced' | 'qa';
@@ -230,16 +233,16 @@ export interface ChunkStrategy {
 }
 
 // 知识库文档支持的文件类型（不含 ZIP）
-export type DatasetDocumentType = 'md' | 'txt' | 'pdf' | 'docx' | 'html' | 'xls' | 'xlsx' | 'csv';
+export type KnowledgeDocumentType = 'md' | 'txt' | 'pdf' | 'docx' | 'html' | 'xls' | 'xlsx' | 'csv';
 
 // 知识库文档
-export interface DatasetDocument {
+export interface KnowledgeDocument {
   id: string;
-  datasetId: string;
+  knowledgeBaseId: string;
   name: string;
   size: string;
-  type: DatasetDocumentType;
-  status: DatasetStatus;
+  type: KnowledgeDocumentType;
+  status: KnowledgeBaseStatus;
   chunks: DocumentChunk[];
   createdAt: string;
   error?: string;
@@ -263,16 +266,16 @@ export interface QAChunkPair {
 }
 
 // ============================================
-// 知识库（Dataset）扩展 - 权限/授权/规则
+// 知识库（KnowledgeBase）扩展 - 权限/授权/规则
 // ============================================
 
 // 权限级别
 export type AuthPermission = 'view' | 'use' | 'maintain';
 
 // 资源授权
-export interface DatasetAuthorization {
+export interface KnowledgeAuthorization {
   id: string;
-  datasetId: string;
+  knowledgeBaseId: string;
   targetType: 'user' | 'department';
   targetId: string;
   targetName: string;
@@ -298,19 +301,19 @@ export interface RelatedResource {
 }
 
 // 知识库（一个知识库包含多个文档）
-export interface Dataset {
+export interface KnowledgeBase {
   id: string;
   name: string;
   description: string;
   tags?: string[];
-  type: DatasetType;
+  type: KnowledgeBaseType;
   vectorModel: string;
   webUrl?: string;
   webSelector?: string;
   feishuAppId?: string;       // 飞书知识库
   feishuFolderToken?: string; // 飞书知识库
-  status: DatasetStatus;
-  documents: DatasetDocument[];
+  status: KnowledgeBaseStatus;
+  documents: KnowledgeDocument[];
   folderId: string;
   createdAt: string;
   updatedAt: string;
@@ -340,10 +343,10 @@ export interface VectorModel {
 }
 
 // 知识库文件夹（支持三级嵌套）
-export interface DatasetFolder {
+export interface KnowledgeFolder {
   id: string;
   name: string;
   parentId: string | null;
-  datasetCount?: number;
-  children?: DatasetFolder[];
+  knowledgeBaseCount?: number;
+  children?: KnowledgeFolder[];
 }

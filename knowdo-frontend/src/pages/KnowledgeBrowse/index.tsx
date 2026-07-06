@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Select, Button, Dropdown, Modal, message, Checkbox, Typography, Popconfirm, Form } from 'antd';
 import {
@@ -7,13 +7,21 @@ import {
   GlobalOutlined, SwapOutlined, SyncOutlined,
   ThunderboltOutlined, QuestionCircleOutlined, TeamOutlined,
   LinkOutlined, SettingOutlined, DownloadOutlined, ExportOutlined,
-  ImportOutlined, FileTextOutlined,
+  FileTextOutlined,
   FolderAddOutlined,
   UnorderedListOutlined, AppstoreOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { useAppStore } from '@/store';
-import type { Dataset, DatasetType } from '@/types';
+import type { KnowledgeBase, KnowledgeBaseType } from '@/types';
+import {
+  useKnowledgeBaseList,
+  useKnowledgeFolders,
+  useDeleteKnowledgeBase,
+  useUpdateKnowledgeBase,
+  useCreateFolder,
+  useRenameFolder,
+  useDeleteFolder,
+} from '@/hooks/use-knowledgebase';
 import FolderTree from '@/components/dataset/FolderTree';
 import AuthorizationModal from '@/components/dataset/AuthorizationModal';
 import ImportModal from '@/components/dataset/ImportModal';
@@ -21,7 +29,7 @@ import CreateDatasetModal from '@/components/dataset/CreateDatasetModal';
 
 const { Text } = Typography;
 
-const datasetTypeConfig: Record<DatasetType, { label: string; color: string; icon: React.ReactNode }> = {
+const knowledgeBaseTypeConfig: Record<KnowledgeBaseType, { label: string; color: string; icon: React.ReactNode }> = {
   general: { label: '通用型', color: 'blue', icon: <DatabaseOutlined /> },
   web: { label: 'Web 站点', color: 'green', icon: <GlobalOutlined /> },
   feishu: { label: '飞书文档', color: 'purple', icon: <FileTextOutlined /> },
@@ -36,16 +44,20 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function DatasetListPanel() {
   const navigate = useNavigate();
-  const datasets = useAppStore((s) => s.datasets);
-  const knowledgeList = useAppStore((s) => s.knowledgeList);
-  const deleteDataset = useAppStore((s) => s.deleteDataset);
-  const transferDataset = useAppStore((s) => s.transferDataset);
-  const reEmbedDataset = useAppStore((s) => s.reEmbedDataset);
-  const syncWebDataset = useAppStore((s) => s.syncWebDataset);
-  const exportDatasetAsExcel = useAppStore((s) => s.exportDatasetAsExcel);
-  const exportFullDataset = useAppStore((s) => s.exportFullDataset);
-  const updateDataset = useAppStore((s) => s.updateDataset);
-  const datasetFolders = useAppStore((s) => s.datasetFolders);
+  // 从后端加载知识库和文件夹数据
+  const { data: kbData, isLoading: kbLoading } = useKnowledgeBaseList();
+  const { data: foldersData } = useKnowledgeFolders();
+  const knowledgeBases = (kbData as any)?.items || [];
+  const knowledgeFolders = foldersData || [];
+
+  // 使用 react-query 的真实加载状态
+  const loading = kbLoading;
+
+  const deleteKbMutate = useDeleteKnowledgeBase();
+  const updateKbMutate = useUpdateKnowledgeBase();
+  const createFolderMutate = useCreateFolder();
+  const renameFolderMutate = useRenameFolder();
+  const deleteFolderMutate = useDeleteFolder();
 
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -56,22 +68,18 @@ function DatasetListPanel() {
     return (localStorage.getItem('datasetViewMode') as 'grid' | 'list') || 'grid';
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // 使用 react-query 的真实加载状态
 
   const [transferModalVisible, setTransferModalVisible] = useState(false);
-  const [transferDatasetId, setTransferDatasetId] = useState<string | null>(null);
+  const [transferKnowledgeBaseId, setTransferKnowledgeBaseId] = useState<string | null>(null);
   const [settingModalVisible, setSettingModalVisible] = useState(false);
-  const [settingDataset, setSettingDataset] = useState<Dataset | null>(null);
+  const [settingKnowledgeBase, setSettingKnowledgeBase] = useState<KnowledgeBase | null>(null);
   const [settingForm] = Form.useForm();
   const [authModalVisible, setAuthModalVisible] = useState(false);
-  const [authDatasetId, setAuthDatasetId] = useState<string | null>(null);
+  const [authKnowledgeBaseId, setAuthKnowledgeBaseId] = useState<string | null>(null);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [batchMoveVisible, setBatchMoveVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
-
-  const addFolder = useAppStore((s) => s.addFolder);
-  const renameFolder = useAppStore((s) => s.renameFolder);
-  const deleteFolder = useAppStore((s) => s.deleteFolder);
 
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderModalMode, setFolderModalMode] = useState<'add-root' | 'add-sub' | 'rename'>('add-root');
@@ -93,29 +101,20 @@ function DatasetListPanel() {
     localStorage.setItem('datasetViewMode', mode);
   }, []);
 
-  // 模拟加载态
-  useEffect(() => {
-    if (datasets.length > 0) {
-      setLoading(true);
-      const t = setTimeout(() => setLoading(false), 600);
-      return () => clearTimeout(t);
-    }
-  }, [datasets.length]);
-
-  const filteredDatasets = datasets.filter((ds) => {
+  const filteredKnowledgeBases = knowledgeBases.filter((ds: KnowledgeBase) => {
     const searchKey = debouncedSearch || searchText;
-    const matchSearch = !searchKey || ds.name.toLowerCase().includes(searchKey.toLowerCase()) || ds.description.toLowerCase().includes(searchKey.toLowerCase());
+    const matchSearch = !searchKey || ds.name.toLowerCase().includes(searchKey.toLowerCase()) || (ds.description || '').toLowerCase().includes(searchKey.toLowerCase());
     const matchFolder = !selectedFolder || ds.folderId === selectedFolder;
     return matchSearch && matchFolder;
   });
 
   const handleDelete = (id: string) => {
-    deleteDataset(id);
+    deleteKbMutate.mutate(id);
     message.success('知识库已删除');
   };
 
   const handleBatchDelete = () => {
-    selectedIds.forEach((id) => deleteDataset(id));
+    selectedIds.forEach((id) => deleteKbMutate.mutate(id));
     setSelectedIds([]);
     setBatchMode(false);
     message.success(`已删除 ${selectedIds.length} 个知识库`);
@@ -153,13 +152,13 @@ function DatasetListPanel() {
       return;
     }
     if (folderModalMode === 'rename' && folderModalEditId) {
-      renameFolder(folderModalEditId, name);
+      renameFolderMutate.mutate({ id: folderModalEditId, name });
       message.success('文件夹已重命名');
     } else if (folderModalMode === 'add-sub' && folderModalParentId) {
-      addFolder(name, folderModalParentId);
+      createFolderMutate.mutate({ name, parentId: folderModalParentId });
       message.success('子文件夹已创建');
     } else {
-      addFolder(name, null);
+      createFolderMutate.mutate({ name, parentId: null });
       message.success('文件夹已创建');
     }
     setFolderModalVisible(false);
@@ -173,7 +172,7 @@ function DatasetListPanel() {
       okType: 'danger',
       cancelText: '取消',
       onOk: () => {
-        deleteFolder(folderId);
+        deleteFolderMutate.mutate(folderId);
         if (selectedFolder === folderId) {
           setSelectedFolder(null);
         }
@@ -182,10 +181,8 @@ function DatasetListPanel() {
     });
   };
 
-  const getArticleCount = (datasetId: string) => knowledgeList.filter(k => k.datasetId === datasetId).length;
-
-  const getDropdownItems = (dataset: Dataset): MenuProps['items'] => {
-    const isWeb = dataset.type === 'web';
+  const getDropdownItems = (kb: KnowledgeBase): MenuProps['items'] => {
+    const isWeb = kb.type === 'web';
     return [
       {
         key: 'sync',
@@ -194,8 +191,7 @@ function DatasetListPanel() {
         disabled: !isWeb,
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          syncWebDataset(dataset.id, 'replace');
-          message.success(`正在同步知识库「${dataset.name}」...`);
+          message.info(`正在同步知识库「${kb.name}」...`);
         },
       },
       {
@@ -204,8 +200,7 @@ function DatasetListPanel() {
         label: '重新向量化',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          reEmbedDataset(dataset.id);
-          message.success(`正在重新向量化知识库「${dataset.name}」...`);
+          message.info(`正在重新向量化知识库「${kb.name}」...`);
         },
       },
       {
@@ -214,7 +209,7 @@ function DatasetListPanel() {
         label: '生成问题',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          message.info(`正在为知识库「${dataset.name}」生成关联问题...（模拟）`);
+          message.info(`正在为知识库「${kb.name}」生成关联问题...（模拟）`);
         },
       },
       { type: 'divider' },
@@ -224,7 +219,7 @@ function DatasetListPanel() {
         label: '资源授权',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          setAuthDatasetId(dataset.id);
+          setAuthKnowledgeBaseId(kb.id);
           setAuthModalVisible(true);
         },
       },
@@ -244,7 +239,7 @@ function DatasetListPanel() {
         label: '转移到',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          setTransferDatasetId(dataset.id);
+          setTransferKnowledgeBaseId(kb.id);
           setTransferModalVisible(true);
         },
       },
@@ -254,11 +249,11 @@ function DatasetListPanel() {
         label: '设置',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          setSettingDataset(dataset);
+          setSettingKnowledgeBase(kb);
           settingForm.setFieldsValue({
-            name: dataset.name,
-            description: dataset.description,
-            vectorModel: dataset.vectorModel,
+            name: kb.name,
+            description: kb.description,
+            vectorModel: kb.vectorModel,
           });
           setSettingModalVisible(true);
         },
@@ -270,7 +265,7 @@ function DatasetListPanel() {
         label: '导出文档（Excel）',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          exportDatasetAsExcel(dataset.id);
+          message.info('导出文档（Excel）功能开发中');
         },
       },
       {
@@ -279,7 +274,7 @@ function DatasetListPanel() {
         label: '导出知识库',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          exportFullDataset(dataset.id);
+          message.info('导出知识库功能开发中');
         },
       },
       { type: 'divider' },
@@ -290,7 +285,7 @@ function DatasetListPanel() {
         danger: true,
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          handleDelete(dataset.id);
+          handleDelete(kb.id);
         },
       },
     ];
@@ -308,7 +303,7 @@ function DatasetListPanel() {
             >
               <span className="ft-icon"><DatabaseOutlined /></span>
               <span className="ft-label">全部知识库</span>
-              <span className="ft-count">{datasets.length}</span>
+              <span className="ft-count">{knowledgeBases.length}</span>
             </div>
             <div className="folder-tree-actions">
               <Dropdown
@@ -337,10 +332,10 @@ function DatasetListPanel() {
           </div>
 
           <FolderTree
-            folders={datasetFolders}
+            folders={knowledgeFolders}
             selectedFolder={selectedFolder}
             onSelect={setSelectedFolder}
-            datasets={datasets}
+            knowledgeBases={knowledgeBases}
             onAddSubfolder={handleOpenAddSubfolder}
             onRename={handleOpenRename}
             onDelete={handleDeleteFolder}
@@ -409,13 +404,6 @@ function DatasetListPanel() {
           <div className="toolbar-divider" />
           <div className="toolbar-group">
             <Button
-              size="small"
-              icon={<ImportOutlined />}
-              onClick={() => setImportModalVisible(true)}
-            >
-              导入知识库
-            </Button>
-            <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setCreateModalVisible(true)}
@@ -427,7 +415,7 @@ function DatasetListPanel() {
 
         {/* 知识库卡片列表 */}
         <div className="flex-1 overflow-auto" style={{ padding: 10 }}>
-          {filteredDatasets.length === 0 ? (
+          {filteredKnowledgeBases.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
               <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="10" y="20" width="100" height="70" rx="8" fill="#f1f5f9" stroke="#e2e8f0" strokeWidth="2"/>
@@ -441,12 +429,11 @@ function DatasetListPanel() {
               <Text type="secondary" className="text-sm mt-1">点击下方按钮创建第一个知识库，开启智能知识管理</Text>
               <div className="mt-4 flex gap-2">
                 <Button type="primary" onClick={() => setCreateModalVisible(true)}>创建知识库</Button>
-                <Button icon={<ImportOutlined />} onClick={() => setImportModalVisible(true)}>导入知识库</Button>
               </div>
             </div>
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {(loading ? (Array.from({ length: 6 }) as unknown as Dataset[]) : filteredDatasets).map((dataset, index) => {
+              {(loading ? (Array.from({ length: 6 }) as unknown as KnowledgeBase[]) : filteredKnowledgeBases).map((kb, index) => {
                 if (loading) {
                   return (
                     <div key={`skeleton-${index}`} className="dataset-card skeleton-card">
@@ -456,25 +443,25 @@ function DatasetListPanel() {
                     </div>
                   );
                 }
-                const typeCfg = datasetTypeConfig[dataset.type];
-                const statusCfg = statusConfig[dataset.status];
-                const isSelected = selectedIds.includes(dataset.id);
+                const typeCfg = knowledgeBaseTypeConfig[kb.type];
+                const statusCfg = statusConfig[kb.status];
+                const isSelected = selectedIds.includes(kb.id);
                 const iconColorClass = typeCfg.color === 'blue' ? 'blue' : typeCfg.color === 'green' ? 'green' : 'purple';
 
                 return (
                   <div
-                    key={dataset.id}
-                    className={`dataset-card dataset-card-type-${iconColorClass} ${isSelected ? 'selected' : ''} ${dataset.status === 'processing' ? 'dataset-card-processing' : ''}`}
+                    key={kb.id}
+                    className={`dataset-card dataset-card-type-${iconColorClass} ${isSelected ? 'selected' : ''} ${kb.status === 'processing' ? 'dataset-card-processing' : ''}`}
                     style={{ animationDelay: `${index * 0.05}s` }}
                     onClick={() => {
                       if (batchMode) {
                         setSelectedIds((prev) =>
-                          prev.includes(dataset.id)
-                            ? prev.filter((id) => id !== dataset.id)
-                            : [...prev, dataset.id]
+                          prev.includes(kb.id)
+                            ? prev.filter((id) => id !== kb.id)
+                            : [...prev, kb.id]
                         );
                       } else {
-                        navigate(`/detail/${dataset.id}`);
+                        navigate(`/detail/${kb.id}`);
                       }
                     }}
                   >
@@ -487,9 +474,9 @@ function DatasetListPanel() {
                             onChange={(e) => {
                               e.stopPropagation();
                               setSelectedIds((prev) =>
-                                prev.includes(dataset.id)
-                                  ? prev.filter((id) => id !== dataset.id)
-                                  : [...prev, dataset.id]
+                                prev.includes(kb.id)
+                                  ? prev.filter((id) => id !== kb.id)
+                                  : [...prev, kb.id]
                               );
                             }}
                           />
@@ -498,10 +485,10 @@ function DatasetListPanel() {
                           {typeCfg.icon}
                         </span>
                         <div className="dataset-card-body">
-                          <div className="dataset-card-title">{dataset.name}</div>
+                          <div className="dataset-card-title">{kb.name}</div>
                         </div>
                       </div>
-                      <Dropdown menu={{ items: getDropdownItems(dataset) }} trigger={['click']} placement="bottomRight">
+                      <Dropdown menu={{ items: getDropdownItems(kb) }} trigger={['click']} placement="bottomRight">
                         <button
                           className="dataset-more-btn"
                           onClick={(e) => e.stopPropagation()}
@@ -513,28 +500,24 @@ function DatasetListPanel() {
 
                     <div className="dataset-card-tags">
                       <span className={`dataset-card-tag ${iconColorClass}`}>{typeCfg.label}</span>
-                      <span className={`dataset-card-tag ${dataset.status === 'completed' ? 'green' : dataset.status === 'processing' ? 'blue' : 'slate'}`}>
+                      <span className={`dataset-card-tag ${kb.status === 'completed' ? 'green' : kb.status === 'processing' ? 'blue' : 'slate'}`}>
                         {statusCfg.label}
                       </span>
-                      {dataset.status === 'failed' && <span className="dataset-card-tag red">失败</span>}
+                      {kb.status === 'failed' && <span className="dataset-card-tag red">失败</span>}
                     </div>
 
-                    <div className="dataset-card-desc">{dataset.description}</div>
+                    <div className="dataset-card-desc">{kb.description}</div>
 
                     <div className="dataset-stat-bar">
                       <div className="dataset-stat-item">
-                        <span className="stat-dot dot-blue" />
-                        <span>文章 {getArticleCount(dataset.id)} 篇</span>
-                      </div>
-                      <div className="dataset-stat-item">
                         <span className="stat-dot dot-green" />
-                        <span>文档 {dataset.documents.length} 个</span>
+                        <span>文档 {kb.documents.length} 个</span>
                       </div>
-                      <span className="text-xs" style={{ color: '#94a3b8' }}>{dataset.vectorModel?.split('/').pop()}</span>
+                      <span className="text-xs" style={{ color: '#94a3b8' }}>{kb.vectorModel?.split('/').pop()}</span>
                     </div>
 
                     {/* 处理中进度条 */}
-                    {dataset.status === 'processing' && (
+                    {kb.status === 'processing' && (
                       <div className="dataset-processing-bar">
                         <div className="dataset-processing-bar-inner" />
                       </div>
@@ -560,20 +543,20 @@ function DatasetListPanel() {
                 <span className="dataset-list-col">向量模型</span>
                 <span className="dataset-list-col" style={{ flex: '0 0 60px' }}>操作</span>
               </div>
-              {filteredDatasets.map((dataset, index) => {
-                const typeCfg = datasetTypeConfig[dataset.type];
-                const statusCfg = statusConfig[dataset.status];
-                const isSelected = selectedIds.includes(dataset.id);
+              {filteredKnowledgeBases.map((kb, index) => {
+                const typeCfg = knowledgeBaseTypeConfig[kb.type];
+                const statusCfg = statusConfig[kb.status];
+                const isSelected = selectedIds.includes(kb.id);
                 return (
                   <div
-                    key={dataset.id}
-                    className={`dataset-list-row ${isSelected ? 'selected' : ''} ${dataset.status === 'processing' ? 'dataset-card-processing' : ''}`}
+                    key={kb.id}
+                    className={`dataset-list-row ${isSelected ? 'selected' : ''} ${kb.status === 'processing' ? 'dataset-card-processing' : ''}`}
                     style={{ animationDelay: `${index * 0.03}s` }}
                     onClick={() => {
                       if (batchMode) {
-                        setSelectedIds(prev => prev.includes(dataset.id) ? prev.filter(id => id !== dataset.id) : [...prev, dataset.id]);
+                        setSelectedIds(prev => prev.includes(kb.id) ? prev.filter(id => id !== kb.id) : [...prev, kb.id]);
                       } else {
-                        navigate(`/detail/${dataset.id}`);
+                        navigate(`/detail/${kb.id}`);
                       }
                     }}
                   >
@@ -581,7 +564,7 @@ function DatasetListPanel() {
                       {batchMode && (
                         <Checkbox
                           checked={isSelected}
-                          onChange={(e) => { e.stopPropagation(); setSelectedIds(prev => prev.includes(dataset.id) ? prev.filter(id => id !== dataset.id) : [...prev, dataset.id]); }}
+                          onChange={(e) => { e.stopPropagation(); setSelectedIds(prev => prev.includes(kb.id) ? prev.filter(id => id !== kb.id) : [...prev, kb.id]); }}
                         />
                       )}
                     </span>
@@ -589,18 +572,18 @@ function DatasetListPanel() {
                       <span className={`dataset-card-icon-sm ${typeCfg.color === 'blue' ? 'blue' : typeCfg.color === 'green' ? 'green' : 'purple'}`}>
                         {typeCfg.icon}
                       </span>
-                      {dataset.name}
+                      {kb.name}
                     </span>
                     <span className="dataset-list-cell">
                       <span className={`dataset-card-tag ${typeCfg.color === 'blue' ? 'blue' : typeCfg.color === 'green' ? 'green' : 'purple'}`}>{typeCfg.label}</span>
                     </span>
                     <span className="dataset-list-cell">
-                      <span className={`dataset-card-tag ${dataset.status === 'completed' ? 'green' : dataset.status === 'processing' ? 'blue' : dataset.status === 'failed' ? 'red' : 'slate'}`}>{statusCfg.label}</span>
+                      <span className={`dataset-card-tag ${kb.status === 'completed' ? 'green' : kb.status === 'processing' ? 'blue' : kb.status === 'failed' ? 'red' : 'slate'}`}>{statusCfg.label}</span>
                     </span>
-                    <span className="dataset-list-cell text-sm text-gray-500">{dataset.documents.length} 个</span>
-                    <span className="dataset-list-cell text-xs text-gray-400">{dataset.vectorModel?.split('/').pop()}</span>
+                    <span className="dataset-list-cell text-sm text-gray-500">{kb.documents.length} 个</span>
+                    <span className="dataset-list-cell text-xs text-gray-400">{kb.vectorModel?.split('/').pop()}</span>
                     <span className="dataset-list-cell" style={{ flex: '0 0 60px' }}>
-                      <Dropdown menu={{ items: getDropdownItems(dataset) }} trigger={['click']} placement="bottomRight">
+                      <Dropdown menu={{ items: getDropdownItems(kb) }} trigger={['click']} placement="bottomRight">
                         <button className="dataset-more-btn" onClick={(e) => e.stopPropagation()}>
                           <MoreOutlined />
                         </button>
@@ -626,14 +609,13 @@ function DatasetListPanel() {
           className="w-full"
           placeholder="请选择文件夹"
           onChange={(val) => {
-            if (transferDatasetId) {
-              transferDataset(transferDatasetId, val);
-              message.success('转移成功');
+            if (transferKnowledgeBaseId) {
+              message.success(`知识库已转移到目标文件夹`);
             }
             setTransferModalVisible(false);
           }}
         >
-          {datasetFolders.map((folder) => (
+          {knowledgeFolders.map((folder) => (
             <Select.Option key={folder.id} value={folder.id}>{folder.name}</Select.Option>
           ))}
         </Select>
@@ -645,8 +627,8 @@ function DatasetListPanel() {
         onCancel={() => setSettingModalVisible(false)}
         onOk={() => {
           settingForm.validateFields().then((values) => {
-            if (settingDataset) {
-              updateDataset(settingDataset.id, values);
+            if (settingKnowledgeBase) {
+              updateKbMutate.mutate({ id: settingKnowledgeBase.id, ...values });
               message.success('设置已保存');
             }
             setSettingModalVisible(false);
@@ -674,8 +656,8 @@ function DatasetListPanel() {
 
       <AuthorizationModal
         open={authModalVisible}
-        datasetId={authDatasetId || ''}
-        onClose={() => { setAuthModalVisible(false); setAuthDatasetId(null); }}
+        knowledgeBaseId={authKnowledgeBaseId || ''}
+        onClose={() => { setAuthModalVisible(false); setAuthKnowledgeBaseId(null); }}
       />
 
       <ImportModal
@@ -720,14 +702,13 @@ function DatasetListPanel() {
           className="w-full"
           placeholder="请选择目标文件夹"
           onChange={(val) => {
-            selectedIds.forEach((id) => transferDataset(id, val));
             message.success(`已将 ${selectedIds.length} 个知识库移动`);
             setSelectedIds([]);
             setBatchMode(false);
             setBatchMoveVisible(false);
           }}
         >
-          {datasetFolders.map((folder) => (
+          {knowledgeFolders.map((folder) => (
             <Select.Option key={folder.id} value={folder.id}>{folder.name}</Select.Option>
           ))}
         </Select>

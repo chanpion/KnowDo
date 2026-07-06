@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Upload, Descriptions, Tag, message } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
-import { useAppStore } from '@/store';
+import { useAppStoreLegacy } from '@/store';
 
 const { Dragger } = Upload;
 const { Item } = Descriptions;
@@ -13,7 +13,7 @@ interface ImportModalProps {
 }
 
 export default function ImportModal({ open, onClose }: ImportModalProps) {
-  const importDataset = useAppStore((s) => s.importDataset);
+  const importKnowledgeBase = useAppStoreLegacy((s) => s.importKnowledgeBase);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<{
     name: string;
@@ -53,7 +53,7 @@ export default function ImportModal({ open, onClose }: ImportModalProps) {
       message.warning('请先选择要导入的知识库文件');
       return;
     }
-    importDataset({
+    importKnowledgeBase({
       name: previewData.name,
       description: previewData.description,
       type: previewData.type,
@@ -61,7 +61,7 @@ export default function ImportModal({ open, onClose }: ImportModalProps) {
       status: 'pending',
       documents: Array.from({ length: previewData.documentCount }, (_, i) => ({
         id: `imp-doc-${i + 1}`,
-        datasetId: '',
+        knowledgeBaseId: '',
         name: `导入文档_${i + 1}.md`,
         size: `${Math.floor(Math.random() * 500) + 50} KB`,
         type: 'md' as const,

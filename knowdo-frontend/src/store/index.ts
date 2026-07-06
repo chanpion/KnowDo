@@ -1,12 +1,16 @@
+export { useUIStore as useAppStore } from './ui-store';
+
+// 旧版 Store（mock 数据驱动），页面迁移期间保留
+// 迁移完成后将被完全移除
 import { create } from 'zustand';
-import type { Knowledge, Notification, ModelConfig, CategoryNode, Tag, ReviewItem, Comment, KnowledgeVersion, FavoriteFolder, Dataset, DatasetDocument, DatasetFolder, DatasetAuthorization, UploadRule, RelatedResource, QAChunkPair } from '@/types';
-import { MOCK_USER, KNOWLEDGE_LIST, NOTIFICATIONS, CATEGORY_TREE, MODEL_LIST, TAG_LIBRARY, REVIEW_QUEUE, DATASETS, DATASET_FOLDERS, DATASET_AUTHORIZATIONS, RELATED_RESOURCES } from '@/mock/data';
+import type { Article, ArticleVersion, Notification, ModelConfig, CategoryNode, Tag, ReviewItem, Comment, FavoriteFolder, KnowledgeBase, KnowledgeDocument, KnowledgeFolder, KnowledgeAuthorization, UploadRule, RelatedResource, QAChunkPair } from '@/types';
+import { MOCK_USER, ARTICLE_LIST, NOTIFICATIONS, CATEGORY_TREE, MODEL_LIST, TAG_LIBRARY, REVIEW_QUEUE, KNOWLEDGE_BASES, KNOWLEDGE_FOLDERS, KNOWLEDGE_AUTHORIZATIONS, RELATED_RESOURCES } from '@/mock/data';
 
 interface AppState {
   // 用户
   user: typeof MOCK_USER;
-  // 知识列表
-  knowledgeList: Knowledge[];
+  // 文章列表
+  articles: Article[];
   // 通知
   notifications: Notification[];
   unreadCount: number;
@@ -20,8 +24,8 @@ interface AppState {
   reviewQueue: ReviewItem[];
   // 收藏夹
   favoriteFolders: FavoriteFolder[];
-  // 软删除知识
-  deletedKnowledgeList: Knowledge[];
+  // 软删除文章
+  deletedArticles: Article[];
   // 侧边栏折叠
   sidebarCollapsed: boolean;
   // 当前页面
@@ -34,9 +38,9 @@ interface AppState {
   markAllNotificationsRead: () => void;
   toggleSidebar: () => void;
   setActivePage: (page: string) => void;
-  updateKnowledge: (id: string, data: Partial<Knowledge>) => void;
-  addKnowledge: (knowledge: Knowledge) => void;
-  deleteKnowledge: (id: string) => void;
+  updateArticle: (id: string, data: Partial<Article>) => void;
+  addArticle: (article: Article) => void;
+  deleteArticle: (id: string) => void;
 
   // 分类管理
   addCategory: (parentId: string | null, name: string) => string | null;
@@ -51,31 +55,31 @@ interface AppState {
 
   // 审核流程
   submitForReview: (id: string) => void;
-  approveKnowledge: (id: string) => void;
-  rejectKnowledge: (id: string, reason: string) => void;
+  approveArticle: (id: string) => void;
+  rejectArticle: (id: string, reason: string) => void;
   returnForEdit: (id: string, feedback: string) => void;
 
   // 评论
-  addComment: (knowledgeId: string, comment: Omit<Comment, 'id' | 'time'>) => void;
-  deleteComment: (knowledgeId: string, commentId: string) => void;
+  addComment: (articleId: string, comment: Omit<Comment, 'id' | 'time'>) => void;
+  deleteComment: (articleId: string, commentId: string) => void;
 
   // 归档
-  archiveKnowledge: (id: string) => void;
-  unarchiveKnowledge: (id: string) => void;
+  archiveArticle: (id: string) => void;
+  unarchiveArticle: (id: string) => void;
 
   // 回收站
-  softDeleteKnowledge: (id: string) => void;
+  softDeleteArticle: (id: string) => void;
   restoreFromRecycle: (id: string) => void;
-  permanentlyDeleteKnowledge: (id: string) => void;
+  permanentlyDeleteArticle: (id: string) => void;
 
   // 版本管理
-  rollbackVersion: (knowledgeId: string, versionId: string) => void;
+  rollbackVersion: (articleId: string, versionId: string) => void;
 
   // 收藏夹管理
   addFavoriteFolder: (name: string) => void;
   renameFavoriteFolder: (id: string, name: string) => void;
   deleteFavoriteFolder: (id: string) => void;
-  moveToFolder: (knowledgeId: string, folderId: string) => void;
+  moveToFolder: (articleId: string, folderId: string) => void;
 
   // 模型管理
   addModel: (model: Omit<ModelConfig, 'id' | 'status' | 'lastTest' | 'testResult'>) => void;
@@ -85,34 +89,34 @@ interface AppState {
   addNotification: (notification: Omit<Notification, 'id'>) => void;
 
   // ============================================
-  // 知识库（Dataset）相关 State 和 Actions
+  // 知识库（KnowledgeBase）相关 State 和 Actions
   // ============================================
-  datasets: Dataset[];
-  datasetFolders: DatasetFolder[];
-  currentDatasetId: string | null;
-  datasetAuthorizations: DatasetAuthorization[];
+  knowledgeBases: KnowledgeBase[];
+  knowledgeFolders: KnowledgeFolder[];
+  currentKnowledgeBaseId: string | null;
+  knowledgeAuthorizations: KnowledgeAuthorization[];
   relatedResources: RelatedResource[];
 
   // 知识库内文章管理
-  getArticlesByDataset: (datasetId: string) => Knowledge[];
+  getArticlesByKnowledgeBase: (knowledgeBaseId: string) => Article[];
 
   // 知识库 CRUD
-  addDataset: (dataset: Omit<Dataset, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { documents?: DatasetDocument[] }) => string;
-  updateDataset: (id: string, data: Partial<Dataset>) => void;
-  deleteDataset: (id: string) => void;
+  addKnowledgeBase: (knowledgeBase: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { documents?: KnowledgeDocument[] }) => string;
+  updateKnowledgeBase: (id: string, data: Partial<KnowledgeBase>) => void;
+  deleteKnowledgeBase: (id: string) => void;
 
   // 知识库文档管理
-  addDatasetDocuments: (datasetId: string, documents: Omit<DatasetDocument, 'id' | 'createdAt' | 'status'>[]) => void;
-  updateDatasetDocument: (datasetId: string, docId: string, data: Partial<DatasetDocument>) => void;
-  deleteDatasetDocument: (datasetId: string, docId: string) => void;
+  addKnowledgeDocuments: (knowledgeBaseId: string, documents: Omit<KnowledgeDocument, 'id' | 'createdAt' | 'status'>[]) => void;
+  updateKnowledgeDocument: (knowledgeBaseId: string, docId: string, data: Partial<KnowledgeDocument>) => void;
+  deleteKnowledgeDocument: (knowledgeBaseId: string, docId: string) => void;
 
   // 知识库操作
-  reEmbedDataset: (datasetId: string) => void;
-  syncWebDataset: (datasetId: string, mode: 'replace' | 'full') => void;
-  transferDataset: (datasetId: string, targetFolderId: string) => void;
-  exportDatasetAsExcel: (datasetId: string) => void;
-  exportFullDataset: (datasetId: string) => void;
-  setCurrentDataset: (id: string | null) => void;
+  reEmbedKnowledgeBase: (knowledgeBaseId: string) => void;
+  syncWebKnowledgeBase: (knowledgeBaseId: string, mode: 'replace' | 'full') => void;
+  transferKnowledgeBase: (knowledgeBaseId: string, targetFolderId: string) => void;
+  exportKnowledgeBaseAsExcel: (knowledgeBaseId: string) => void;
+  exportFullKnowledgeBase: (knowledgeBaseId: string) => void;
+  setCurrentKnowledgeBase: (id: string | null) => void;
 
   // 文件夹管理（三级嵌套）
   addFolder: (name: string, parentId: string | null) => void;
@@ -121,17 +125,17 @@ interface AppState {
   moveFolder: (id: string, targetParentId: string | null) => void;
 
   // 资源授权
-  authorizeDataset: (dataset: DatasetAuthorization) => void;
+  authorizeKnowledgeBase: (authorization: KnowledgeAuthorization) => void;
   revokeAuthorization: (id: string) => void;
 
   // 导入知识库
-  importDataset: (data: Omit<Dataset, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  importKnowledgeBase: (data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => void;
 
   // 上传规则
-  updateUploadRule: (datasetId: string, rule: UploadRule) => void;
+  updateUploadRule: (knowledgeBaseId: string, rule: UploadRule) => void;
 
   // QA 分段
-  generateQAChunks: (datasetId: string, docId: string, pairs: QAChunkPair[]) => void;
+  generateQAChunks: (knowledgeBaseId: string, docId: string, pairs: QAChunkPair[]) => void;
 }
 
 // 生成简易ID
@@ -178,16 +182,16 @@ function addChildToNode(nodes: CategoryNode[], parentId: string, child: Category
   });
 }
 
-// 检查分类是否有子节点或关联知识
-function categoryHasDependencies(nodes: CategoryNode[], id: string, knowledgeList: Knowledge[]): boolean {
+// 检查分类是否有子节点或关联文章
+function categoryHasDependencies(nodes: CategoryNode[], id: string, articles: Article[]): boolean {
   const node = findCategoryNode(nodes, id);
   if (node?.children && node.children.length > 0) return true;
-  return knowledgeList.some(k => k.categoryId === id || k.categoryId.startsWith(id + '-'));
+  return articles.some(k => k.categoryId === id || k.categoryId.startsWith(id + '-'));
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStoreLegacy = create<AppState>((set, get) => ({
   user: MOCK_USER,
-  knowledgeList: KNOWLEDGE_LIST,
+  articles: ARTICLE_LIST,
   notifications: NOTIFICATIONS,
   unreadCount: NOTIFICATIONS.filter(n => !n.read).length,
   categoryTree: CATEGORY_TREE,
@@ -195,15 +199,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   modelList: MODEL_LIST,
   reviewQueue: REVIEW_QUEUE,
   favoriteFolders: [
-    { id: 'fav-default', name: '默认收藏夹', knowledgeIds: [] },
+    { id: 'fav-default', name: '默认收藏夹', articleIds: [] },
   ],
-  deletedKnowledgeList: [],
+  deletedArticles: [],
   sidebarCollapsed: false,
   activePage: 'home',
 
   // ============ 原有 Actions ============
   toggleLike: (id) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k => {
+    articles: state.articles.map(k => {
       if (k.id === id) {
         return {
           ...k,
@@ -216,11 +220,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   toggleFavorite: (id) => set((state) => {
-    const knowledge = state.knowledgeList.find(k => k.id === id);
-    if (!knowledge) return state;
-    const willBeFavorited = !knowledge.isFavorited;
+    const article = state.articles.find(k => k.id === id);
+    if (!article) return state;
+    const willBeFavorited = !article.isFavorited;
     return {
-      knowledgeList: state.knowledgeList.map(k => {
+      articles: state.articles.map(k => {
         if (k.id === id) {
           return {
             ...k,
@@ -232,15 +236,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       }),
       favoriteFolders: state.favoriteFolders.map(f => {
         if (f.id === 'fav-default') {
-          if (willBeFavorited && !f.knowledgeIds.includes(id)) {
-            return { ...f, knowledgeIds: [...f.knowledgeIds, id] };
+          if (willBeFavorited && !f.articleIds.includes(id)) {
+            return { ...f, articleIds: [...f.articleIds, id] };
           }
           if (!willBeFavorited) {
-            return { ...f, knowledgeIds: f.knowledgeIds.filter(kid => kid !== id) };
+            return { ...f, articleIds: f.articleIds.filter(aid => aid !== id) };
           }
         }
         if (!willBeFavorited) {
-          return { ...f, knowledgeIds: f.knowledgeIds.filter(kid => kid !== id) };
+          return { ...f, articleIds: f.articleIds.filter(aid => aid !== id) };
         }
         return f;
       }),
@@ -268,18 +272,18 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setActivePage: (page) => set({ activePage: page }),
 
-  updateKnowledge: (id, data) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k =>
+  updateArticle: (id, data) => set((state) => ({
+    articles: state.articles.map(k =>
       k.id === id ? { ...k, ...data } : k
     ),
   })),
 
-  addKnowledge: (knowledge) => set((state) => ({
-    knowledgeList: [knowledge, ...state.knowledgeList],
+  addArticle: (article) => set((state) => ({
+    articles: [article, ...state.articles],
   })),
 
-  deleteKnowledge: (id) => set((state) => ({
-    knowledgeList: state.knowledgeList.filter(k => k.id !== id),
+  deleteArticle: (id) => set((state) => ({
+    articles: state.articles.filter(k => k.id !== id),
   })),
 
   // ============ 分类管理 ============
@@ -309,7 +313,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteCategory: (id) => {
     let canDelete = true;
     set((state) => {
-      canDelete = !categoryHasDependencies(state.categoryTree, id, state.knowledgeList);
+      canDelete = !categoryHasDependencies(state.categoryTree, id, state.articles);
       if (!canDelete) return state;
       return { categoryTree: removeCategoryNode(state.categoryTree, id) };
     });
@@ -339,35 +343,35 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ============ 审核流程 ============
   submitForReview: (id) => set((state) => {
-    const knowledge = state.knowledgeList.find(k => k.id === id);
-    if (!knowledge) return state;
+    const article = state.articles.find(k => k.id === id);
+    if (!article) return state;
     const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const reviewItem: ReviewItem = {
       id: genId('rq'),
-      title: knowledge.title,
-      author: knowledge.author,
-      authorDept: knowledge.authorDept,
+      title: article.title,
+      author: article.author,
+      authorDept: article.authorDept,
       submitTime: now,
-      category: knowledge.category,
+      category: article.category,
       status: 'pending',
       aiScore: 4.0,
       aiIssues: [],
     };
     return {
-      knowledgeList: state.knowledgeList.map(k =>
+      articles: state.articles.map(k =>
         k.id === id ? { ...k, status: 'pending_review' as const } : k
       ),
       reviewQueue: [reviewItem, ...state.reviewQueue],
     };
   }),
 
-  approveKnowledge: (id) => set((state) => {
+  approveArticle: (id) => set((state) => {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
     return {
-      knowledgeList: state.knowledgeList.map(k => {
+      articles: state.articles.map(k => {
         if (k.id === id) {
           const versions = k.versions || [];
-          const newVersion: KnowledgeVersion = {
+          const newVersion: ArticleVersion = {
             id: genId('ver'),
             versionNumber: k.version,
             content: k.content,
@@ -385,28 +389,28 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return k;
       }),
-      reviewQueue: state.reviewQueue.filter(r => r.id !== id && r.title !== state.knowledgeList.find(k => k.id === id)?.title),
+      reviewQueue: state.reviewQueue.filter(r => r.id !== id && r.title !== state.articles.find(k => k.id === id)?.title),
       notifications: [{
         id: genId('n'),
         type: 'publish' as const,
         read: false,
         icon: '📢',
-        title: '知识发布通知',
-        desc: `《${state.knowledgeList.find(k => k.id === id)?.title}》已通过审核并发布`,
+        title: '文章发布通知',
+        desc: `《${state.articles.find(k => k.id === id)?.title}》已通过审核并发布`,
         time: '刚刚',
       }, ...state.notifications],
       unreadCount: state.unreadCount + 1,
     };
   }),
 
-  rejectKnowledge: (id, reason) => set((state) => {
-    const knowledge = state.knowledgeList.find(k => k.id === id);
+  rejectArticle: (id, reason) => set((state) => {
+    const article = state.articles.find(k => k.id === id);
     return {
-      knowledgeList: state.knowledgeList.map(k =>
+      articles: state.articles.map(k =>
         k.id === id ? { ...k, status: 'rejected' as const } : k
       ),
       reviewQueue: state.reviewQueue.filter(r =>
-        !(knowledge && r.title === knowledge.title)
+        !(article && r.title === article.title)
       ),
       notifications: [{
         id: genId('n'),
@@ -414,7 +418,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         read: false,
         icon: '❌',
         title: '审核驳回',
-        desc: `《${knowledge?.title}》已被驳回，原因：${reason}`,
+        desc: `《${article?.title}》已被驳回，原因：${reason}`,
         time: '刚刚',
       }, ...state.notifications],
       unreadCount: state.unreadCount + 1,
@@ -422,13 +426,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
 
   returnForEdit: (id, feedback) => set((state) => {
-    const knowledge = state.knowledgeList.find(k => k.id === id);
+    const article = state.articles.find(k => k.id === id);
     return {
-      knowledgeList: state.knowledgeList.map(k =>
+      articles: state.articles.map(k =>
         k.id === id ? { ...k, status: 'draft' as const } : k
       ),
       reviewQueue: state.reviewQueue.filter(r =>
-        !(knowledge && r.title === knowledge.title)
+        !(article && r.title === article.title)
       ),
       notifications: [{
         id: genId('n'),
@@ -436,7 +440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         read: false,
         icon: '📝',
         title: '退回修改',
-        desc: `《${knowledge?.title}》已退回修改：${feedback}`,
+        desc: `《${article?.title}》已退回修改：${feedback}`,
         time: '刚刚',
       }, ...state.notifications],
       unreadCount: state.unreadCount + 1,
@@ -444,9 +448,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
 
   // ============ 评论 ============
-  addComment: (knowledgeId, comment) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k => {
-      if (k.id === knowledgeId) {
+  addComment: (articleId, comment) => set((state) => ({
+    articles: state.articles.map(k => {
+      if (k.id === articleId) {
         const newComment: Comment = {
           ...comment,
           id: genId('cmt'),
@@ -462,9 +466,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   })),
 
-  deleteComment: (knowledgeId, commentId) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k => {
-      if (k.id === knowledgeId) {
+  deleteComment: (articleId, commentId) => set((state) => ({
+    articles: state.articles.map(k => {
+      if (k.id === articleId) {
         return {
           ...k,
           comments: k.comments.filter(c => c.id !== commentId),
@@ -476,56 +480,56 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // ============ 归档 ============
-  archiveKnowledge: (id) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k =>
+  archiveArticle: (id) => set((state) => ({
+    articles: state.articles.map(k =>
       k.id === id ? { ...k, status: 'archived' as const } : k
     ),
   })),
 
-  unarchiveKnowledge: (id) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k =>
+  unarchiveArticle: (id) => set((state) => ({
+    articles: state.articles.map(k =>
       k.id === id ? { ...k, status: 'published' as const } : k
     ),
   })),
 
   // ============ 回收站 ============
-  softDeleteKnowledge: (id) => set((state) => {
-    const item = state.knowledgeList.find(k => k.id === id);
+  softDeleteArticle: (id) => set((state) => {
+    const item = state.articles.find(k => k.id === id);
     if (!item) return state;
     const deletedItem = {
       ...item,
       deletedAt: new Date().toISOString(),
     };
     return {
-      knowledgeList: state.knowledgeList.filter(k => k.id !== id),
-      deletedKnowledgeList: [deletedItem, ...state.deletedKnowledgeList],
+      articles: state.articles.filter(k => k.id !== id),
+      deletedArticles: [deletedItem, ...state.deletedArticles],
     };
   }),
 
   restoreFromRecycle: (id) => set((state) => {
-    const item = state.deletedKnowledgeList.find(k => k.id === id);
+    const item = state.deletedArticles.find(k => k.id === id);
     if (!item) return state;
     const { deletedAt, ...restored } = item;
     return {
-      knowledgeList: [restored as Knowledge, ...state.knowledgeList],
-      deletedKnowledgeList: state.deletedKnowledgeList.filter(k => k.id !== id),
+      articles: [restored as Article, ...state.articles],
+      deletedArticles: state.deletedArticles.filter(k => k.id !== id),
     };
   }),
 
-  permanentlyDeleteKnowledge: (id) => set((state) => ({
-    deletedKnowledgeList: state.deletedKnowledgeList.filter(k => k.id !== id),
+  permanentlyDeleteArticle: (id) => set((state) => ({
+    deletedArticles: state.deletedArticles.filter(k => k.id !== id),
   })),
 
   // ============ 版本管理 ============
-  rollbackVersion: (knowledgeId, versionId) => set((state) => ({
-    knowledgeList: state.knowledgeList.map(k => {
-      if (k.id !== knowledgeId) return k;
+  rollbackVersion: (articleId, versionId) => set((state) => ({
+    articles: state.articles.map(k => {
+      if (k.id !== articleId) return k;
       const targetVersion = (k.versions || []).find(v => v.id === versionId);
       if (!targetVersion) return k;
       const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
       const currentVersions = k.versions || [];
       const newVersionNum = `V${(currentVersions.length + 1).toFixed(1)}`;
-      const rollbackVersion: KnowledgeVersion = {
+      const rollbackVersionEntry: ArticleVersion = {
         id: genId('ver'),
         versionNumber: newVersionNum,
         content: targetVersion.content,
@@ -538,7 +542,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...k,
         content: targetVersion.content,
         version: newVersionNum,
-        versions: [rollbackVersion, ...currentVersions],
+        versions: [rollbackVersionEntry, ...currentVersions],
       };
     }),
   })),
@@ -548,7 +552,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     favoriteFolders: [...state.favoriteFolders, {
       id: genId('fav'),
       name,
-      knowledgeIds: [],
+      articleIds: [],
     }],
   })),
 
@@ -562,20 +566,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     favoriteFolders: state.favoriteFolders.filter(f => f.id !== id || f.id === 'fav-default'),
   })),
 
-  moveToFolder: (knowledgeId, folderId) => set((state) => ({
+  moveToFolder: (articleId, folderId) => set((state) => ({
     favoriteFolders: state.favoriteFolders.map(f => {
       if (f.id === folderId) {
         return {
           ...f,
-          knowledgeIds: f.knowledgeIds.includes(knowledgeId)
-            ? f.knowledgeIds
-            : [...f.knowledgeIds, knowledgeId],
+          articleIds: f.articleIds.includes(articleId)
+            ? f.articleIds
+            : [...f.articleIds, articleId],
         };
       }
-      // 从其他收藏夹中移除
       return {
         ...f,
-        knowledgeIds: f.knowledgeIds.filter(id => id !== knowledgeId),
+        articleIds: f.articleIds.filter(id => id !== articleId),
       };
     }),
   })),
@@ -616,63 +619,63 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // ============================================
-  // 知识库（Dataset）相关实现
+  // 知识库（KnowledgeBase）相关实现
   // ============================================
-  datasets: DATASETS,
-  datasetFolders: DATASET_FOLDERS,
-  currentDatasetId: null,
-  datasetAuthorizations: DATASET_AUTHORIZATIONS,
+  knowledgeBases: KNOWLEDGE_BASES,
+  knowledgeFolders: KNOWLEDGE_FOLDERS,
+  currentKnowledgeBaseId: null,
+  knowledgeAuthorizations: KNOWLEDGE_AUTHORIZATIONS,
   relatedResources: RELATED_RESOURCES,
 
   // 获取知识库下的文章列表
-  getArticlesByDataset: (datasetId: string): Knowledge[] => {
-    return get().knowledgeList.filter((k: Knowledge) => k.datasetId === datasetId);
+  getArticlesByKnowledgeBase: (knowledgeBaseId: string): Article[] => {
+    return get().articles.filter((k: Article) => k.knowledgeBaseId === knowledgeBaseId);
   },
 
   // 新增知识库
-  addDataset: (dataset) => {
+  addKnowledgeBase: (knowledgeBase) => {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
     const newId = genId('ds');
-    const newDataset: Dataset = {
-      ...dataset,
+    const newKnowledgeBase: KnowledgeBase = {
+      ...knowledgeBase,
       id: newId,
-      documents: dataset.documents || [],
+      documents: knowledgeBase.documents || [],
       status: 'pending',
       createdAt: now,
       updatedAt: now,
     };
-    set((state) => ({ datasets: [newDataset, ...state.datasets] }));
+    set((state) => ({ knowledgeBases: [newKnowledgeBase, ...state.knowledgeBases] }));
     return newId;
   },
 
   // 更新知识库
-  updateDataset: (id, data) => set((state) => ({
-    datasets: state.datasets.map(ds =>
-      ds.id === id ? { ...ds, ...data, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : ds
+  updateKnowledgeBase: (id, data) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb =>
+      kb.id === id ? { ...kb, ...data, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : kb
     ),
   })),
 
   // 删除知识库
-  deleteDataset: (id) => set((state) => ({
-    datasets: state.datasets.filter(ds => ds.id !== id),
+  deleteKnowledgeBase: (id) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.filter(kb => kb.id !== id),
   })),
 
   // 添加文档到知识库（支持多文件）
-  addDatasetDocuments: (datasetId, documents) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  addKnowledgeDocuments: (knowledgeBaseId, documents) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
-      const newDocs: DatasetDocument[] = documents.map((doc, idx) => ({
+      const newDocs: KnowledgeDocument[] = documents.map((doc) => ({
         ...doc,
         id: genId('doc'),
-        datasetId,
+        knowledgeBaseId,
         status: 'pending' as const,
         createdAt: now,
         chunks: [],
       }));
       return {
-        ...ds,
-        documents: [...ds.documents, ...newDocs],
+        ...kb,
+        documents: [...kb.documents, ...newDocs],
         status: 'processing' as const,
         updatedAt: now,
       };
@@ -680,12 +683,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // 更新文档
-  updateDatasetDocument: (datasetId, docId, data) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  updateKnowledgeDocument: (knowledgeBaseId, docId, data) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       return {
-        ...ds,
-        documents: ds.documents.map(doc =>
+        ...kb,
+        documents: kb.documents.map(doc =>
           doc.id === docId ? { ...doc, ...data } : doc
         ),
       };
@@ -693,23 +696,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // 删除文档
-  deleteDatasetDocument: (datasetId, docId) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  deleteKnowledgeDocument: (knowledgeBaseId, docId) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       return {
-        ...ds,
-        documents: ds.documents.filter(doc => doc.id !== docId),
+        ...kb,
+        documents: kb.documents.filter(doc => doc.id !== docId),
         updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
       };
     }),
   })),
 
   // 重新向量化
-  reEmbedDataset: (datasetId) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  reEmbedKnowledgeBase: (knowledgeBaseId) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       return {
-        ...ds,
+        ...kb,
         status: 'processing' as const,
         updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
       };
@@ -717,11 +720,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // 同步 Web 知识库
-  syncWebDataset: (datasetId, mode) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  syncWebKnowledgeBase: (knowledgeBaseId, _mode) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       return {
-        ...ds,
+        ...kb,
         status: 'processing' as const,
         updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
       };
@@ -729,38 +732,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   })),
 
   // 转移知识库
-  transferDataset: (datasetId, targetFolderId) => set((state) => ({
-    datasets: state.datasets.map(ds =>
-      ds.id === datasetId ? { ...ds, folderId: targetFolderId, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : ds
+  transferKnowledgeBase: (knowledgeBaseId, targetFolderId) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb =>
+      kb.id === knowledgeBaseId ? { ...kb, folderId: targetFolderId, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : kb
     ),
   })),
 
   // 导出为 Excel（模拟）
-  exportDatasetAsExcel: (datasetId) => {
-    const ds = DATASETS.find(d => d.id === datasetId);
-    if (ds) {
-      alert(`正在导出知识库「${ds.name}」的分段内容为 Excel...（模拟下载）`);
+  exportKnowledgeBaseAsExcel: (knowledgeBaseId) => {
+    const kb = get().knowledgeBases.find(d => d.id === knowledgeBaseId);
+    if (kb) {
+      alert(`正在导出知识库「${kb.name}」的分段内容为 Excel...（模拟下载）`);
     }
   },
 
   // 导出知识库（模拟）
-  exportFullDataset: (datasetId) => {
-    const ds = DATASETS.find(d => d.id === datasetId);
-    if (ds) {
-      alert(`正在导出知识库「${ds.name}」的完整数据包...（模拟下载）`);
+  exportFullKnowledgeBase: (knowledgeBaseId) => {
+    const kb = get().knowledgeBases.find(d => d.id === knowledgeBaseId);
+    if (kb) {
+      alert(`正在导出知识库「${kb.name}」的完整数据包...（模拟下载）`);
     }
   },
 
   // 设置当前知识库
-  setCurrentDataset: (id) => set({ currentDatasetId: id }),
+  setCurrentKnowledgeBase: (id) => set({ currentKnowledgeBaseId: id }),
 
   // ============ 文件夹管理（三级嵌套） ============
   addFolder: (name, parentId) => set((state) => {
-    const newFolder: DatasetFolder = { id: genId('ds-folder'), name, parentId, children: [], datasetCount: 0 };
+    const newFolder: KnowledgeFolder = { id: genId('ds-folder'), name, parentId, children: [], knowledgeBaseCount: 0 };
     if (!parentId) {
-      return { datasetFolders: [...state.datasetFolders, newFolder] };
+      return { knowledgeFolders: [...state.knowledgeFolders, newFolder] };
     }
-    function addChild(folders: DatasetFolder[]): DatasetFolder[] {
+    function addChild(folders: KnowledgeFolder[]): KnowledgeFolder[] {
       return folders.map(f => {
         if (f.id === parentId) {
           return { ...f, children: [...(f.children || []), newFolder] };
@@ -769,34 +772,34 @@ export const useAppStore = create<AppState>((set, get) => ({
         return f;
       });
     }
-    return { datasetFolders: addChild(state.datasetFolders) };
+    return { knowledgeFolders: addChild(state.knowledgeFolders) };
   }),
 
   renameFolder: (id, name) => set((state) => {
-    function rename(folders: DatasetFolder[]): DatasetFolder[] {
+    function rename(folders: KnowledgeFolder[]): KnowledgeFolder[] {
       return folders.map(f => {
         if (f.id === id) return { ...f, name };
         if (f.children) return { ...f, children: rename(f.children) };
         return f;
       });
     }
-    return { datasetFolders: rename(state.datasetFolders) };
+    return { knowledgeFolders: rename(state.knowledgeFolders) };
   }),
 
   deleteFolder: (id) => set((state) => {
-    function remove(folders: DatasetFolder[]): DatasetFolder[] {
+    function remove(folders: KnowledgeFolder[]): KnowledgeFolder[] {
       return folders.filter(f => f.id !== id).map(f => {
         if (f.children) return { ...f, children: remove(f.children) };
         return f;
       });
     }
-    return { datasetFolders: remove(state.datasetFolders) };
+    return { knowledgeFolders: remove(state.knowledgeFolders) };
   }),
 
   moveFolder: (id, targetParentId) => set((state) => {
-    let moved: DatasetFolder | null = null;
-    function extract(folders: DatasetFolder[]): DatasetFolder[] {
-      const result: DatasetFolder[] = [];
+    let moved: KnowledgeFolder | null = null;
+    function extract(folders: KnowledgeFolder[]): KnowledgeFolder[] {
+      const result: KnowledgeFolder[] = [];
       for (const f of folders) {
         if (f.id === id) {
           moved = { ...f, parentId: targetParentId };
@@ -806,7 +809,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       return result;
     }
-    function insert(folders: DatasetFolder[]): DatasetFolder[] {
+    function insert(folders: KnowledgeFolder[]): KnowledgeFolder[] {
       if (!moved) return folders;
       return folders.map(f => {
         if (f.id === targetParentId) {
@@ -816,45 +819,45 @@ export const useAppStore = create<AppState>((set, get) => ({
         return f;
       });
     }
-    const afterExtract = extract(state.datasetFolders);
-    if (!moved) return { datasetFolders: afterExtract };
+    const afterExtract = extract(state.knowledgeFolders);
+    if (!moved) return { knowledgeFolders: afterExtract };
     if (targetParentId === null) {
-      return { datasetFolders: [...afterExtract, moved] };
+      return { knowledgeFolders: [...afterExtract, moved] };
     }
-    return { datasetFolders: insert(afterExtract) };
+    return { knowledgeFolders: insert(afterExtract) };
   }),
 
   // ============ 资源授权 ============
-  authorizeDataset: (authorization) => set((state) => ({
-    datasetAuthorizations: [...state.datasetAuthorizations, { ...authorization, id: genId('auth'), authorizedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) }],
+  authorizeKnowledgeBase: (authorization) => set((state) => ({
+    knowledgeAuthorizations: [...state.knowledgeAuthorizations, { ...authorization, id: genId('auth'), authorizedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) }],
   })),
 
   revokeAuthorization: (id) => set((state) => ({
-    datasetAuthorizations: state.datasetAuthorizations.filter(a => a.id !== id),
+    knowledgeAuthorizations: state.knowledgeAuthorizations.filter(a => a.id !== id),
   })),
 
   // ============ 导入知识库 ============
-  importDataset: (data) => set((state) => {
+  importKnowledgeBase: (data) => set((state) => {
     const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
     return {
-      datasets: [{ ...data, id: genId('ds'), createdAt: now, updatedAt: now, status: 'pending' as const }, ...state.datasets],
+      knowledgeBases: [{ ...data, id: genId('ds'), createdAt: now, updatedAt: now, status: 'pending' as const }, ...state.knowledgeBases],
     };
   }),
 
   // ============ 上传规则 ============
-  updateUploadRule: (datasetId, rule) => set((state) => ({
-    datasets: state.datasets.map(ds =>
-      ds.id === datasetId ? { ...ds, uploadRule: rule, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : ds
+  updateUploadRule: (knowledgeBaseId, rule) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb =>
+      kb.id === knowledgeBaseId ? { ...kb, uploadRule: rule, updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) } : kb
     ),
   })),
 
   // ============ QA 分段生成 ============
-  generateQAChunks: (datasetId, docId, pairs) => set((state) => ({
-    datasets: state.datasets.map(ds => {
-      if (ds.id !== datasetId) return ds;
+  generateQAChunks: (knowledgeBaseId, docId, pairs) => set((state) => ({
+    knowledgeBases: state.knowledgeBases.map(kb => {
+      if (kb.id !== knowledgeBaseId) return kb;
       return {
-        ...ds,
-        documents: ds.documents.map(doc => {
+        ...kb,
+        documents: kb.documents.map(doc => {
           if (doc.id !== docId) return doc;
           const newChunks = pairs.map((pair, idx) => ({
             id: genId('chk'),

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Form, Input, Select, message } from 'antd';
-import { useAppStore } from '@/store';
+import { useAppStoreLegacy } from '@/store';
 import { TAG_LIBRARY } from '@/mock/data';
 
 interface CreateDatasetModalProps {
@@ -9,8 +9,8 @@ interface CreateDatasetModalProps {
 }
 
 export default function CreateDatasetModal({ open, onClose }: CreateDatasetModalProps) {
-  const addDataset = useAppStore((s) => s.addDataset);
-  const datasets = useAppStore((s) => s.datasets);
+  const addKnowledgeBase = useAppStoreLegacy((s) => s.addKnowledgeBase);
+  const knowledgeBases = useAppStoreLegacy((s) => s.knowledgeBases);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
@@ -19,7 +19,7 @@ export default function CreateDatasetModal({ open, onClose }: CreateDatasetModal
       const values = await form.validateFields();
       setLoading(true);
 
-      const newId = addDataset({
+      const newId = addKnowledgeBase({
         name: values.name.trim(),
         description: values.description?.trim() || '',
         tags: values.tags || [],

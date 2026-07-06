@@ -5,32 +5,32 @@ import {
   FolderOutlined, FolderOpenOutlined, CaretRightOutlined,
   PlusOutlined, MoreOutlined, EditOutlined, DeleteOutlined,
 } from '@ant-design/icons';
-import type { DatasetFolder, Dataset } from '@/types';
+import type { KnowledgeFolder, KnowledgeBase } from '@/types';
 
 const MAX_DEPTH = 2;
 
 interface FolderTreeProps {
-  folders: DatasetFolder[];
+  folders: KnowledgeFolder[];
   selectedFolder: string | null;
   onSelect: (folderId: string | null) => void;
-  datasets: Dataset[];
+  knowledgeBases: KnowledgeBase[];
   depth?: number;
   onAddSubfolder?: (parentId: string) => void;
   onRename?: (folderId: string, currentName: string) => void;
   onDelete?: (folderId: string, folderName: string) => void;
 }
 
-function countDatasetsInFolder(folderId: string, datasets: Dataset[], allFolders: DatasetFolder[]): number {
-  let count = datasets.filter((ds) => ds.folderId === folderId).length;
+function countKnowledgeBasesInFolder(folderId: string, kbList: KnowledgeBase[], allFolders: KnowledgeFolder[]): number {
+  let count = kbList.filter((ds) => ds.folderId === folderId).length;
   const children = allFolders.filter((f) => f.parentId === folderId);
   for (const child of children) {
-    count += countDatasetsInFolder(child.id, datasets, allFolders);
+    count += countKnowledgeBasesInFolder(child.id, kbList, allFolders);
   }
   return count;
 }
 
 export default function FolderTree({
-  folders, selectedFolder, onSelect, datasets, depth = 0,
+  folders, selectedFolder, onSelect, knowledgeBases: kbList, depth = 0,
   onAddSubfolder, onRename, onDelete,
 }: FolderTreeProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -43,7 +43,7 @@ export default function FolderTree({
     });
   };
 
-  const getDropdownItems = (folder: DatasetFolder): MenuProps['items'] => {
+  const getDropdownItems = (folder: KnowledgeFolder): MenuProps['items'] => {
     const items: MenuProps['items'] = [];
     if (depth < MAX_DEPTH) {
       items.push({
@@ -76,7 +76,7 @@ export default function FolderTree({
       {folders.map((folder) => {
         const isExpanded = expandedIds.has(folder.id);
         const hasChildren = folder.children && folder.children.length > 0;
-        const totalCount = countDatasetsInFolder(folder.id, datasets, folders);
+        const totalCount = countKnowledgeBasesInFolder(folder.id, kbList, folders);
         const isSelected = selectedFolder === folder.id;
 
         return (
@@ -125,7 +125,7 @@ export default function FolderTree({
                 folders={folder.children!}
                 selectedFolder={selectedFolder}
                 onSelect={onSelect}
-                datasets={datasets}
+                knowledgeBases={kbList}
                 depth={depth + 1}
                 onAddSubfolder={onAddSubfolder}
                 onRename={onRename}

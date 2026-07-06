@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # 开发
 cd knowdo-frontend && npm run dev
 
-# 构建
+# 构建（含 TypeScript 类型检查）
 cd knowdo-frontend && npm run build
 
-# 代码检查
+# 代码检查（oxlint）
 cd knowdo-frontend && npm run lint
 
 # 预览构建产物
@@ -22,12 +22,40 @@ cd knowdo-frontend && npm run preview
 
 - **框架**: React 19 + TypeScript 6
 - **构建**: Vite 8 (with `@vitejs/plugin-react`)
-- **UI**: Ant Design 6 (中文 locale, 蓝色主题 `#1a56db`)
+- **UI**: Ant Design 6 (中文 locale, 蓝色主题 `#1a56db`, 圆角 8px)
 - **样式**: Tailwind CSS 4 (Vite plugin 模式) + 全局 CSS
 - **路由**: React Router 7 (BrowserRouter)
-- **状态管理**: Zustand 5 (单一 store)
+- **状态管理**: Zustand 5 (单一 store, ~874行)
+- **数据请求**: axios + @tanstack/react-query (已依赖但尚未大规模使用)
 - **富文本编辑器**: TipTap 3 (TiptapEditor 组件封装)
 - **静态检查**: oxlint (配置在 `.oxlintrc.json`)
+
+## 主题配置
+
+Ant Design 主题在 `App.tsx` 中集中配置：
+- `colorPrimary`: `#1a56db`（蓝色系）
+- `borderRadius`: `8`（统一圆角）
+- `fontFamily`: 系统默认 + 中文优先字体栈 (`PingFang SC`, `Hiragino Sans GB`, `Microsoft YaHei`)
+
+## 路由一览
+
+| 路由 | 页面 | 说明 |
+|------|------|------|
+| `/` | Home | 首页仪表盘 |
+| `/browse` | KnowledgeBrowse | 分类浏览 + 多维度检索 |
+| `/create` | KnowledgeCreate | 4步向导创建（支持 `?edit=id` 编辑模式） |
+| `/create/article` | KnowledgeCreate | 直接创建文章 |
+| `/detail/:id` | KnowledgeDetail | 知识详情 |
+| `/article/:id` | ArticleDetail | 独立文章页 |
+| `/drafts` | Drafts | 草稿箱 |
+| `/review` | Review | 审核管理 |
+| `/recycle` | Recycle | 回收站 |
+| `/favorites` | Favorites | 收藏夹管理 |
+| `/tags` | Tags | 标签管理 |
+| `/model` | ModelConfig | AI 模型配置 |
+| `*` | NotFound | 404 页面 |
+
+> **注意**: `Dataset/`、`DatasetCreate/`、`DatasetDetail/` 页面目录存在于 `src/pages/`，但路由尚未在 `App.tsx` 中注册。
 
 ## 路径别名
 

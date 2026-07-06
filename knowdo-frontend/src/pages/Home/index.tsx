@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '@/store';
-import { getHotKnowledge, getLatestKnowledge, formatCount, formatTime } from '@/mock/data';
+import { useHotArticles, useLatestArticles } from '@/hooks/use-article';
+import { useKnowledgeBaseList } from '@/hooks/use-knowledgebase';
 
 const QUICK_ACTIONS = [
   { key: 'create-kb', label: '创建知识库', desc: '新建知识库容器', icon: '🗂️', color: 'blue', path: '/create' },
@@ -11,17 +11,32 @@ const QUICK_ACTIONS = [
 
 export default function Home() {
   const navigate = useNavigate();
-  const { knowledgeList, datasets, toggleLike, toggleFavorite } = useAppStore();
-  const hotList = getHotKnowledge();
-  const latestList = getLatestKnowledge();
+  const { data: hotData } = useHotArticles();
+  const { data: latestData } = useLatestArticles();
+  const { data: kbData } = useKnowledgeBaseList();
 
-  const totalDocuments = datasets.reduce((sum, ds) => sum + ds.documents.length, 0);
+  const hotList = (hotData as any[]) || [];
+  const latestList = (latestData as any[]) || [];
+  const knowledgeBases = (kbData as any)?.items || [];
+
+  const totalDocuments = knowledgeBases.reduce((sum: number, ds: any) => sum + (ds.documents?.length || 0), 0);
+
+  const formatCount = (n: number) => {
+    if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    return String(n);
+  };
+
+  const formatTime = (t: string) => {
+    if (!t) return '';
+    return t.replace('T', ' ').substring(0, 16);
+  };
 
   const STAT_CARDS = [
-    { key: 'datasets', label: '知识库', icon: '🗂️', color: 'blue' as const, value: formatCount(datasets.length) },
-    { key: 'articles', label: '知识文章', icon: '📄', color: 'green' as const, value: formatCount(knowledgeList.length) },
+    { key: 'datasets', label: '知识库', icon: '🗂️', color: 'blue' as const, value: formatCount(knowledgeBases.length) },
+    { key: 'articles', label: '知识文章', icon: '📄', color: 'green' as const, value: formatCount(hotList.length + latestList.length) },
     { key: 'documents', label: '文档总量', icon: '📎', color: 'purple' as const, value: formatCount(totalDocuments) },
-    { key: 'views', label: '今日浏览', icon: '👁', color: 'orange' as const, value: formatCount(knowledgeList.reduce((s, k) => s + k.viewCount, 0)) },
+    { key: 'views', label: '今日浏览', icon: '👁', color: 'orange' as const, value: formatCount(0) },
   ];
 
   return (

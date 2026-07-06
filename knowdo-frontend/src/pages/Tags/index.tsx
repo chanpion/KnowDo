@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Table, Button, Tag, Modal, Input, Select, Popconfirm, message, Empty, ColorPicker } from 'antd';
+import { Table, Button, Tag, Modal, Input, Select, Popconfirm, message, Empty } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useAppStore } from '@/store';
+import { useTagList, useCreateTag, useUpdateTag, useDeleteTag } from '@/hooks/use-tags';
 import type { Tag as TagType } from '@/types';
 
 const TAG_COLORS: { value: TagType['color']; label: string }[] = [
@@ -17,7 +17,10 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 export default function TagsPage() {
-  const { tagLibrary, addTag, updateTag, deleteTag } = useAppStore();
+  const { data: tagLibrary = [], isLoading } = useTagList();
+  const createTag = useCreateTag();
+  const updateTag = useUpdateTag();
+  const deleteTag = useDeleteTag();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTag, setEditingTag] = useState<TagType | null>(null);
   const [formName, setFormName] = useState('');
@@ -46,11 +49,15 @@ export default function TagsPage() {
       return;
     }
     if (editingTag) {
-      updateTag(editingTag.id, { name: formName.trim(), color: formColor, group: formGroup.trim() || undefined });
-      message.success('标签已更新');
+      updateTag.mutate(
+        { id: editingTag.id, name: formName.trim(), color: formColor, group: formGroup.trim() || undefined },
+        { onSuccess: () => message.success('标签已更新') }
+      );
     } else {
-      addTag(formName.trim(), formColor, formGroup.trim() || undefined);
-      message.success('标签已添加');
+      createTag.mutate(
+        { name: formName.trim(), color: formColor, group: formGroup.trim() || undefined },
+        { onSuccess: () => message.success('标签已添加') }
+      );
     }
     setModalVisible(false);
   };
@@ -105,7 +112,7 @@ export default function TagsPage() {
       render: (_: unknown, record: TagType) => (
         <div style={{ display: 'flex', gap: 4 }}>
           <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Popconfirm title="确定删除此标签？" onConfirm={() => { deleteTag(record.id); message.success('标签已删除'); }}>
+          <Popconfirm title="确定删除此标签？" onConfirm={() => deleteTag.mutate(record.id, { onSuccess: () => message.success('标签已删除') })}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
         </div>

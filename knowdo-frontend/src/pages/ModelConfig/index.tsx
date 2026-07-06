@@ -4,7 +4,7 @@ import {
   ApiOutlined,
   ReloadOutlined, PlusOutlined, SettingOutlined,
 } from '@ant-design/icons';
-import { useAppStore } from '@/store';
+import { useModelList, useCreateModel, useUpdateModel, useTestModel } from '@/hooks/use-models';
 import type { ModelConfig, ModelType } from '@/types';
 
 const PROVIDERS = [
@@ -29,7 +29,19 @@ const PROVIDER_OPTIONS = [
 ];
 
 export default function ModelConfigPage() {
-  const { modelList, addModel, updateModel } = useAppStore();
+  const { data: modelData, isLoading } = useModelList();
+  const createModel = useCreateModel();
+  const updateModel = useUpdateModel();
+  const testModel = useTestModel();
+
+  // 将后端返回的 items 按 type 组织为 Record<string, ModelConfig[]>
+  const rawModels = (modelData as any)?.items || [];
+  const modelList: Record<string, ModelConfig[]> = {};
+  for (const m of rawModels) {
+    const key = (m.type || 'llm').toLowerCase();
+    if (!modelList[key]) modelList[key] = [];
+    modelList[key].push(m);
+  }
   const [activeProvider, setActiveProvider] = useState('全部');
   const [activeTab, setActiveTab] = useState<ModelType>('LLM');
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -48,17 +60,20 @@ export default function ModelConfigPage() {
 
   const handleTestConnection = (model: ModelConfig) => {
     setTestingId(model.id);
-    message.loading({ content: `正在测试 ${model.name} 连接...`, key: 'test', duration: 1.5 });
-    setTimeout(() => {
-      setTestingId(null);
-      const latency = `${Math.floor(Math.random() * 500 + 100)}ms`;
-      updateModel(model.id, {
-        lastTest: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        testResult: { success: true, latency },
-        status: 'online',
-      });
-      message.success({ content: `${model.name} 连接成功！延迟 ${latency}`, key: 'test' });
-    }, 1500);
+    testModel.mutate(model.id, {
+      onSuccess: (result: any) => {
+        setTestingId(null);
+        if (result.success) {
+          message.success({ content: `${model.name} 连接成功！延迟 ${result.latency}`, key: 'test' });
+        } else {
+          message.error({ content: `${model.name} 连接失败：${result.error || '未知错误'}`, key: 'test' });
+        }
+      },
+      onError: (err: Error) => {
+        setTestingId(null);
+        message.error({ content: `${model.name} 测试失败：${err.message}`, key: 'test' });
+      },
+    });
   };
 
   const handleRefreshAll = () => {
@@ -68,48 +83,40 @@ export default function ModelConfigPage() {
     message.loading({ content: `正在刷新 ${allCurrentModels.length} 个模型状态...`, key: 'refresh-all', duration: 0 });
 
     allCurrentModels.forEach((model) => {
-      setTimeout(() => {
-        const success = Math.random() > 0.2;
-        const latency = success ? `${Math.floor(Math.random() * 500 + 100)}ms` : '-';
-        updateModel(model.id, {
-          lastTest: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          testResult: success
-            ? { success: true, latency }
-            : { success: false, latency: '-', error: '连接超时' },
-          status: success ? 'online' : 'offline',
-        });
-        completed++;
-        if (completed >= allCurrentModels.length) {
-          setRefreshingAll(false);
-          message.success({ content: `刷新完成：${allCurrentModels.length} 个模型`, key: 'refresh-all' });
-        }
-      }, Math.random() * 2000 + 500);
+      testModel.mutate(model.id, {
+        onSettled: () => {
+          completed++;
+          if (completed >= allCurrentModels.length) {
+            setRefreshingAll(false);
+            message.success({ content: `刷新完成：${allCurrentModels.length} 个模型`, key: 'refresh-all' });
+          }
+        },
+      });
     });
   };
 
   const handleAddModel = () => {
     addForm.validateFields().then((values) => {
       const modelNameMap: Record<string, string> = {
-        'OpenAI': values.modelName || 'gpt-4o',
-        'DeepSeek': values.modelName || 'deepseek-chat',
-        '阿里云百炼': values.modelName || 'qwen-turbo',
-        'Anthropic': values.modelName || 'claude-3-opus',
-        'BAAI': values.modelName || 'bge-large-zh',
-        'shibing624': values.modelName || 'text2vec-base',
-        'Cohere': values.modelName || 'command-r-plus',
+        'OpenAI': 'gpt-4o', 'DeepSeek': 'deepseek-chat', '阿里云百炼': 'qwen-turbo',
+        'Anthropic': 'claude-3-opus', 'BAAI': 'bge-large-zh', 'shibing624': 'text2vec-base',
+        'Cohere': 'command-r-plus',
       };
-      addModel({
+      createModel.mutate({
         name: values.name,
         provider: values.provider,
         type: values.type,
-        modelName: values.modelName || modelNameMap[values.provider] || values.modelName || '',
-        apiUrl: values.apiUrl || '',
-        maxTokens: values.maxTokens || 4096,
+        api_url: values.apiUrl || '',
+        api_key: '',
+        model_name: values.modelName || modelNameMap[values.provider] || '',
+        max_tokens: values.maxTokens || 4096,
         concurrency: values.concurrency || 5,
         timeout: values.timeout || 30,
         retry: values.retry || 3,
+      }, {
+        onSuccess: () => message.success('模型添加成功'),
+        onError: (err: Error) => message.error(`添加失败: ${err.message}`),
       });
-      message.success('模型添加成功，请配置 API 密钥后测试连接');
       setAddModalOpen(false);
       addForm.resetFields();
     });
@@ -124,8 +131,10 @@ export default function ModelConfigPage() {
   const handleSaveConfig = () => {
     if (!editingModel) return;
     configForm.validateFields().then((values) => {
-      updateModel(editingModel.id, values);
-      message.success('配置已保存');
+      updateModel.mutate(
+        { id: editingModel.id, ...values },
+        { onSuccess: () => message.success('配置已保存') }
+      );
       setDrawerOpen(false);
       setEditingModel(null);
     });

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import zhCN from 'antd/locale/zh_CN';
 import AppLayout from '@/components/layout/AppLayout';
 import Home from '@/pages/Home';
@@ -13,7 +14,17 @@ import ReviewPage from '@/pages/Review';
 import RecyclePage from '@/pages/Recycle';
 import FavoritesPage from '@/pages/Favorites';
 import TagsPage from '@/pages/Tags';
+import NotificationsPage from '@/pages/Notifications';
 import NotFound from '@/pages/NotFound';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 const theme = {
   token: {
@@ -25,12 +36,16 @@ const theme = {
 
 function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <ConfigProvider locale={zhCN} theme={theme}>
       <BrowserRouter>
         <AppLayout>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/browse" element={<KnowledgeBrowse />} />
+            <Route path="/dataset" element={<KnowledgeBrowse />} />
+            <Route path="/dataset/create" element={<KnowledgeCreate />} />
+            <Route path="/dataset/:id" element={<KnowledgeDetail />} />
             <Route path="/create" element={<KnowledgeCreate />} />
             <Route path="/create/article" element={<KnowledgeCreate />} />
             <Route path="/detail/:id" element={<KnowledgeDetail />} />
@@ -41,11 +56,13 @@ function App() {
             <Route path="/recycle" element={<RecyclePage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/tags" element={<TagsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>
       </BrowserRouter>
     </ConfigProvider>
+    </QueryClientProvider>
   );
 }
 

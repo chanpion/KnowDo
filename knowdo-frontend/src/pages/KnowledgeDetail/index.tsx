@@ -1,55 +1,208 @@
-  import { useState, useMemo } from 'react';
-  import { useParams, useNavigate } from 'react-router-dom';
-  import { Button, message, Typography, Tag, Space, Input, Segmented, Select, Slider, Form, Popconfirm, Dropdown, Tooltip, Modal, Switch, InputNumber } from 'antd';
-  import {
-    SearchOutlined, AppstoreOutlined, UnorderedListOutlined,
-    PlusOutlined, DeleteOutlined, FileTextOutlined,
-    DatabaseOutlined, TeamOutlined, LinkOutlined, SettingOutlined,
-    ThunderboltOutlined, DownloadOutlined, ExportOutlined,
-    GlobalOutlined, EditOutlined, FolderOutlined,
-  } from '@ant-design/icons';
-  import { useAppStore } from '@/store';
-  import { formatCount, formatTime } from '@/mock/data';
-  import type { ChunkMode } from '@/types';
-  import AuthorizationModal from '@/components/dataset/AuthorizationModal';
-  import RelatedResourcesModal from '@/components/dataset/RelatedResourcesModal';
+import { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button, message, Typography, Tag, Space, Input, Segmented, Select, Slider, Popconfirm, Dropdown, Modal, Switch, InputNumber, Table, Upload } from 'antd';
+import {
+  SearchOutlined, AppstoreOutlined, UnorderedListOutlined,
+  PlusOutlined, DeleteOutlined, FileTextOutlined,
+  TeamOutlined, LinkOutlined, SettingOutlined,
+  ThunderboltOutlined, DownloadOutlined,
+  EditOutlined, FolderOutlined,
+  FilePdfOutlined, FileWordOutlined, FileExcelOutlined,
+  FileMarkdownOutlined, FileTextOutlined as FileTextIconOutlined, FileUnknownOutlined,
+} from '@ant-design/icons';
+import { useKnowledgeBaseList, useUpdateKnowledgeBase, useDeleteKnowledgeBase, useUploadDocument, useDeleteDocument } from '@/hooks/use-knowledgebase';
+import { useArticleList, useArchiveArticle, useDeleteArticle } from '@/hooks/use-article';
+import type { ChunkMode } from '@/types';
+import AuthorizationModal from '@/components/dataset/AuthorizationModal';
+import RelatedResourcesModal from '@/components/dataset/RelatedResourcesModal';
 
-  const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
-  const TYPE_ICONS: Record<string, string> = { doc: '📄', image: '🖼️ ', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
+const TYPE_ICONS: Record<string, string> = { doc: '📄', image: '🖼️ ', video: '🎬', audio: '🎵', link: '🔗', qa: '❓' };
 
-  const statusLabel: Record<string, string> = {
-    pending: '待处理', processing: '处理中', completed: '已完成', failed: '失败',
-  };
+const statusLabel: Record<string, string> = {
+  pending: '待处理', processing: '处理中', completed: '已完成', failed: '失败',
+};
 
-  const SIDEBAR_MENUS = [
-    { key: 'articles', label: '文档', icon: '📄' },
-    { key: 'recall', label: '召回测试', icon: '🧪' },
-    { key: 'settings', label: '设置', icon: '⚙️ ' },
-  ];
+const SIDEBAR_MENUS = [
+  { key: 'articles', label: '文档', icon: '📄' },
+  { key: 'recall', label: '召回测试', icon: '🧪' },
+  { key: 'settings', label: '设置', icon: '⚙️ ' },
+];
 
-  function ArticleListPanel({ datasetId }: { datasetId: string }) {
+function fmtTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  if (diff < 60 * 1000) return '刚刚';
+  if (diff < 60 * 60 * 1000) return Math.floor(diff / (60 * 1000)) + '分钟前';
+  if (diff < 24 * 60 * 60 * 1000) return Math.floor(diff / (60 * 60 * 1000)) + '小时前';
+  if (diff < 7 * 24 * 60 * 60 * 1000) return Math.floor(diff / (24 * 60 * 60 * 1000)) + '天前';
+  return dateStr.substring(0, 10);
+}
+
+function fmtCount(num: number): string {
+  if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+  return num.toString();
+}
+
+function ArticleListPanel({ datasetId }: { datasetId: string }) {
     const navigate = useNavigate();
-    const archiveKnowledge = useAppStore((s) => s.archiveKnowledge);
-    const deleteKnowledge = useAppStore((s) => s.deleteKnowledge);
-    const knowledgeList = useAppStore((s) => s.knowledgeList);
-    const datasets = useAppStore((s) => s.datasets);
+    const archiveArticleMut = useArchiveArticle();
+    const deleteArticleMut = useDeleteArticle();
+    const { data: allArticlesData } = useArticleList();
+    const { data: kbListData } = useKnowledgeBaseList();
     const [search, setSearch] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const dataset = datasets.find((ds) => ds.id === datasetId);
+    const [uploading, setUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+    const allArticles = allArticlesData?.items || [];
+    const dataset = (kbListData?.items || []).find((ds: any) => ds.id === datasetId);
 
     const articles = useMemo(() => {
-      let list = knowledgeList.filter((k) => k.datasetId === datasetId);
+      let list = allArticles.filter((k: any) => k.datasetId === datasetId);
       if (search) {
         const s = search.toLowerCase();
-        list = list.filter((k) =>
+        list = list.filter((k: any) =>
           k.title.toLowerCase().includes(s) ||
           k.summary.toLowerCase().includes(s) ||
-          k.tags.some((t) => t.toLowerCase().includes(s))
+          k.tags.some((t: string) => t.toLowerCase().includes(s))
         );
       }
       return list;
-    }, [knowledgeList, datasetId, search]);
+    }, [allArticles, datasetId, search]);
+
+    const documents = dataset?.documents || [];
+
+    const docSearch = useMemo(() => {
+      if (!search) return documents;
+      const s = search.toLowerCase();
+      return documents.filter((d: any) => d.name.toLowerCase().includes(s));
+    }, [documents, search]);
+
+    const uploadDocMut = useUploadDocument();
+    const deleteDocMut = useDeleteDocument();
+
+    const handleUpload = async (file: File) => {
+      const fileId = 'upload-' + Date.now() + '-' + file.name;
+      setUploading(true);
+      setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
+
+      let progress = 0;
+      const timer = setInterval(() => {
+        progress += Math.random() * 30 + 10;
+        if (progress >= 90) progress = 90;
+        setUploadProgress((prev) => ({ ...prev, [fileId]: Math.floor(progress) }));
+      }, 300);
+
+      try {
+        await uploadDocMut.mutateAsync({ kbId: datasetId, file });
+        clearInterval(timer);
+        setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
+        setTimeout(() => {
+          setUploading(false);
+          setUploadProgress((prev) => {
+            const next = { ...prev };
+            delete next[fileId];
+            return next;
+          });
+          message.success('"' + file.name + '"上传成功，开始处理...');
+        }, 500);
+      } catch {
+        clearInterval(timer);
+        setUploading(false);
+        setUploadProgress((prev) => {
+          const next = { ...prev };
+          delete next[fileId];
+          return next;
+        });
+        message.error('"' + file.name + '"上传失败');
+      }
+
+      return false;
+    };
+
+    const handleDeleteDoc = (docId: string) => {
+      deleteDocMut.mutate({ kbId: datasetId, docId });
+      message.success('文档已删除');
+    };
+
+    const getDocIcon = (type: string) => {
+      switch (type) {
+        case 'pdf': return <FilePdfOutlined style={{ color: '#ef4444', fontSize: 20 }} />;
+        case 'docx': return <FileWordOutlined style={{ color: '#2563eb', fontSize: 20 }} />;
+        case 'xls': case 'xlsx': return <FileExcelOutlined style={{ color: '#16a34a', fontSize: 20 }} />;
+        case 'md': return <FileMarkdownOutlined style={{ color: '#7c3aed', fontSize: 20 }} />;
+        case 'txt': return <FileTextIconOutlined style={{ color: '#64748b', fontSize: 20 }} />;
+        default: return <FileUnknownOutlined style={{ color: '#94a3b8', fontSize: 20 }} />;
+      }
+    };
+
+    const docColumns = [
+      {
+        title: '文件名',
+        dataIndex: 'name',
+        key: 'name',
+        render: (name: string, record: any) => (
+          <div className="flex items-center gap-2">
+            {getDocIcon(record.type)}
+            <span className="font-medium text-sm">{name}</span>
+          </div>
+        ),
+      },
+      {
+        title: '大小',
+        dataIndex: 'size',
+        key: 'size',
+        width: 100,
+        render: (size: string) => <span className="text-sm text-gray-500">{size}</span>,
+      },
+      {
+        title: '状态',
+        dataIndex: 'status',
+        key: 'status',
+        width: 100,
+        render: (status: string) => {
+          const c: Record<string, any> = {
+            pending: { color: '#f59e0b', bg: '#fef3c7', label: '待处理' },
+            processing: { color: '#3b82f6', bg: '#eff6ff', label: '处理中' },
+            completed: { color: '#22c55e', bg: '#f0fdf4', label: '已完成' },
+            failed: { color: '#ef4444', bg: '#fef2f2', label: '失败' },
+          };
+          const s = c[status] || c.pending;
+          return (
+            <span style={{ color: s.color, background: s.bg, padding: '2px 10px', borderRadius: 10, fontSize: 12, fontWeight: 500 }}>
+              {s.label}
+            </span>
+          );
+        },
+      },
+      {
+        title: '分段',
+        dataIndex: 'chunks',
+        key: 'chunks',
+        width: 80,
+        render: (chunks: any[]) => <span className="text-sm text-gray-500">{chunks.length} 段</span>,
+      },
+      {
+        title: '上传时间',
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        width: 140,
+        render: (time: string) => <span className="text-sm text-gray-500">{time}</span>,
+      },
+      {
+        title: '操作',
+        key: 'action',
+        width: 80,
+        render: (_: any, record: any) => (
+          <Popconfirm title="确定删除此文档？" onConfirm={() => handleDeleteDoc(record.id)}>
+            <Button type="text" danger size="small">删除</Button>
+          </Popconfirm>
+        ),
+      },
+    ];
 
     return (
       <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
@@ -101,11 +254,11 @@
                       menu={{
                         items: [
                           { key: 'edit', icon: <EditOutlined />, label: '编辑', onClick: (e: any) => { e.domEvent.stopPropagation(); navigate(`/create?edit=${item.id}`); } },
-                          { key: 'archive', icon: <FolderOutlined />, label: '归档', onClick: (e: any) => { e.domEvent.stopPropagation(); archiveKnowledge(item.id); message.success('已归档'); } },
+                          { key: 'archive', icon: <FolderOutlined />, label: '归档', onClick: (e: any) => { e.domEvent.stopPropagation(); archiveArticleMut.mutate(item.id); message.success('已归档'); } },
                           { key: 'copy', icon: <LinkOutlined />, label: '复制链接', onClick: (e: any) => { e.domEvent.stopPropagation();
   navigator.clipboard.writeText(`${window.location.origin}/article/${item.id}`); message.success('链接已复制'); } },
                           { type: 'divider' },
-                          { key: 'delete', icon: <DeleteOutlined />, label: '删除', danger: true, onClick: (e: any) => { e.domEvent.stopPropagation(); deleteKnowledge(item.id);
+                          { key: 'delete', icon: <DeleteOutlined />, label: '删除', danger: true, onClick: (e: any) => { e.domEvent.stopPropagation(); deleteArticleMut.mutate(item.id);
   message.success('已删除'); } },
                         ],
                       }}
@@ -127,10 +280,10 @@
                   <div className="kc-card-footer">
                     <div className="kc-card-footer-left">
                       <span>👤 {item.author}</span>
-                      <span>{formatTime(item.publishTime)}</span>
+                      <span>{fmtTime(item.publishTime)}</span>
                     </div>
                     <div className="kc-card-footer-right">
-                      <span>👁 {formatCount(item.viewCount)}</span>
+                      <span>👁 {fmtCount(item.viewCount)}</span>
                       <span>💬 {item.commentCount}</span>
                     </div>
                   </div>
@@ -139,14 +292,36 @@
             </div>
           )}
         </div>
+
+        {/* 已上传文档 */}
+        {documents.length > 0 && (
+          <div className="px-[10px] pb-[10px]">
+            <div className="flex items-center justify-between mb-3">
+              <Text strong className="text-sm">已上传文档 ({documents.length})</Text>
+              <Upload beforeUpload={handleUpload} showUploadList={false} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.html,.htm">
+                <Button size="small" type="primary" icon={<PlusOutlined />}>上传文档</Button>
+              </Upload>
+            </div>
+            <div className="bg-white rounded-lg">
+              <Table
+                dataSource={docSearch}
+                columns={docColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // ---- Recall Test Panel ----
-  function RecallTestPanel({ datasetId }: { datasetId: string }) {
-    const datasets = useAppStore((s) => s.datasets);
-    const sourceDocNames = datasets.find(ds => ds.id === datasetId)?.documents.map(d => d.name) || [];
+function RecallTestPanel({ datasetId }: { datasetId: string }) {
+    const { data: kbListData } = useKnowledgeBaseList();
+    const datasets = kbListData?.items || [];
+    const sourceDocNames = datasets.find((ds: any) => ds.id === datasetId)?.documents.map((d: any) => d.name) || [];
 
     const [query, setQuery] = useState('');
     const [topK, setTopK] = useState(5);
@@ -277,21 +452,23 @@
   }
 
   // ---- Settings Panel ----
-  function SettingsPanel({ datasetId }: { datasetId: string }) {
+function SettingsPanel({ datasetId }: { datasetId: string }) {
     const navigate = useNavigate();
-    const datasets = useAppStore((s) => s.datasets);
-    const updateDataset = useAppStore((s) => s.updateDataset);
-    const deleteDataset = useAppStore((s) => s.deleteDataset);
-    const reEmbedDataset = useAppStore((s) => s.reEmbedDataset);
-    const exportDatasetAsExcel = useAppStore((s) => s.exportDatasetAsExcel);
-    const knowledgeList = useAppStore((s) => s.knowledgeList);
+    const { data: kbListData } = useKnowledgeBaseList();
+    const { data: allArticlesData } = useArticleList();
+    const updateKbMut = useUpdateKnowledgeBase();
+    const deleteKbMut = useDeleteKnowledgeBase();
+    const datasets = kbListData?.items || [];
+    const allArticles = allArticlesData?.items || [];
+    const updateDataset = (id: string, data: any) => updateKbMut.mutateAsync({ id, ...data });
+    const deleteDataset = (id: string) => deleteKbMut.mutateAsync(id);
 
-    const dataset = datasets.find((ds) => ds.id === datasetId);
+    const dataset = datasets.find((ds: any) => ds.id === datasetId);
     if (!dataset) return null;
 
-    const articleCount = knowledgeList.filter((k) => k.datasetId === datasetId).length;
+    const articleCount = allArticles.filter((k: any) => k.datasetId === datasetId).length;
     const docCount = dataset.documents.length;
-    const chunkCount = dataset.documents.reduce((sum, d) => sum + d.chunks.length, 0);
+    const chunkCount = dataset.documents.reduce((sum: number, d: any) => sum + d.chunks.length, 0);
 
     // 基本信息
     const [name, setName] = useState(dataset.name);
@@ -658,10 +835,10 @@
             <div className="settings-label">操作</div>
             <div className="settings-content">
               <Space>
-                <Button icon={<ThunderboltOutlined />} onClick={() => { reEmbedDataset(dataset.id); message.success('正在重新向量化...'); }}>
+                <Button icon={<ThunderboltOutlined />} onClick={() => { message.info('向量化功能开发中'); }}>
                   重新向量化
                 </Button>
-                <Button icon={<DownloadOutlined />} onClick={() => exportDatasetAsExcel(dataset.id)}>
+                <Button icon={<DownloadOutlined />} onClick={() => message.info('导出功能开发中')}>
                   导出
                 </Button>
                 <Popconfirm title="确定删除此知识库？" onConfirm={handleDelete}>
@@ -680,18 +857,20 @@
   }
 
   // ---- Main KnowledgeDetail Page ----
-  export default function KnowledgeDetail() {
+export default function KnowledgeDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const datasets = useAppStore((s) => s.datasets);
+    const { data: kbListData } = useKnowledgeBaseList();
+    const { data: allArticlesData } = useArticleList();
     const [activeMenu, setActiveMenu] = useState('articles');
     const [authModalVisible, setAuthModalVisible] = useState(false);
     const [relatedModalVisible, setRelatedModalVisible] = useState(false);
+    const datasets = kbListData?.items || [];
+    const allArticles = allArticlesData?.items || [];
 
-    const dataset = id ? datasets.find((ds) => ds.id === id) : null;
-    const knowledgeList = useAppStore((s) => s.knowledgeList);
-    const articleCount = useMemo(() => knowledgeList.filter(k => k.datasetId === dataset?.id).length, [knowledgeList, dataset?.id]);
-    const chunkCount = useMemo(() => (dataset?.documents || []).reduce((sum, d) => sum + d.chunks.length, 0), [dataset?.documents]);
+    const dataset = id ? datasets.find((ds: any) => ds.id === id) : null;
+    const articleCount = useMemo(() => allArticles.filter((k: any) => k.datasetId === dataset?.id).length, [allArticles, dataset?.id]);
+    const chunkCount = useMemo(() => (dataset?.documents || []).reduce((sum: number, d: any) => sum + d.chunks.length, 0), [dataset?.documents]);
 
     if (!dataset) {
       return (
