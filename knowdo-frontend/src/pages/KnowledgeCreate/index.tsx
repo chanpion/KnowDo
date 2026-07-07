@@ -103,8 +103,6 @@ function DatasetCreatePanel() {
         vectorModel,
         webUrl: selectedType === 'web' ? webUrl.trim() : undefined,
         webSelector: selectedType === 'web' ? webSelector.trim() || undefined : undefined,
-        folderId: 'ds-folder-1',
-        documents: [],
       });
       message.success('知识库创建成功！');
       navigate(`/detail/${result.id}`);

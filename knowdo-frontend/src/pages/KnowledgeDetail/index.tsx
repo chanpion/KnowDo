@@ -10,7 +10,7 @@ import {
   FilePdfOutlined, FileWordOutlined, FileExcelOutlined,
   FileMarkdownOutlined, FileTextOutlined as FileTextIconOutlined, FileUnknownOutlined,
 } from '@ant-design/icons';
-import { useKnowledgeBaseList, useUpdateKnowledgeBase, useDeleteKnowledgeBase, useUploadDocument, useDeleteDocument } from '@/hooks/use-knowledgebase';
+import { useKnowledgeBaseList, useUpdateKnowledgeBase, useDeleteKnowledgeBase, useUploadDocument, useDeleteDocument, useRecallTest } from '@/hooks/use-knowledgebase';
 import { useArticleList, useArchiveArticle, useDeleteArticle } from '@/hooks/use-article';
 import type { ChunkMode } from '@/types';
 import AuthorizationModal from '@/components/dataset/AuthorizationModal';
@@ -61,7 +61,7 @@ function ArticleListPanel({ datasetId }: { datasetId: string }) {
     const dataset = (kbListData?.items || []).find((ds: any) => ds.id === datasetId);
 
     const articles = useMemo(() => {
-      let list = allArticles.filter((k: any) => k.datasetId === datasetId);
+      let list = allArticles.filter((k: any) => k.knowledgeBaseId === datasetId);
       if (search) {
         const s = search.toLowerCase();
         list = list.filter((k: any) =>
@@ -321,7 +321,7 @@ function ArticleListPanel({ datasetId }: { datasetId: string }) {
 function RecallTestPanel({ datasetId }: { datasetId: string }) {
     const { data: kbListData } = useKnowledgeBaseList();
     const datasets = kbListData?.items || [];
-    const sourceDocNames = datasets.find((ds: any) => ds.id === datasetId)?.documents.map((d: any) => d.name) || [];
+    const sourceDocNames = datasets.find((ds: any) => ds.id === datasetId)?.documents?.map((d: any) => d.name) || [];
 
     const [query, setQuery] = useState('');
     const [topK, setTopK] = useState(5);
@@ -329,20 +329,31 @@ function RecallTestPanel({ datasetId }: { datasetId: string }) {
     const [results, setResults] = useState<{ content: string; score: number; source: string }[]>([]);
     const [tested, setTested] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const recallTest = useRecallTest();
 
-    const handleTest = () => {
+    const handleTest = async () => {
       if (!query.trim()) {
         message.warning('请输入测试查询语句');
         return;
       }
-      const mockResults = [
-        { content: '申请材料包括：企业营业执照、组织机构代码证、税务登记证、最近三年财务报表、信贷申请书、法定代表人身份证明...', score: 0.92, source: sourceDocNames[0] || '文档1.pdf' },
-        { content: '信用评估包括财务分析、行业分析、管理层评估等步骤，评估结果分为AAA、AA、A、BBB...', score: 0.85, source: sourceDocNames[1] || sourceDocNames[0] || '文档2.docx' },
-        { content: '信贷审批流程分为以下节点：客户经理受理、信贷专员初审、风险专员评估、审批官审批...', score: 0.73, source: sourceDocNames[0] || '文档1.pdf' },
-      ];
-      setResults(mockResults);
-      setTested(true);
-      message.success('召回测试完成');
+      try {
+        const data = await recallTest.mutateAsync({
+          kbId: datasetId,
+          query: query.trim(),
+          topK,
+          searchMode,
+        });
+        const items = (data as any)?.results || [];
+        setResults(items.map((item: any) => ({
+          content: item.content || item.document || '',
+          score: item.score || 0,
+          source: item.source || item.doc_name || '',
+        })));
+        setTested(true);
+        message.success(`召回测试完成，返回 ${items.length} 条结果`);
+      } catch {
+        message.error('召回测试失败');
+      }
     };
 
     return (
@@ -466,9 +477,9 @@ function SettingsPanel({ datasetId }: { datasetId: string }) {
     const dataset = datasets.find((ds: any) => ds.id === datasetId);
     if (!dataset) return null;
 
-    const articleCount = allArticles.filter((k: any) => k.datasetId === datasetId).length;
-    const docCount = dataset.documents.length;
-    const chunkCount = dataset.documents.reduce((sum: number, d: any) => sum + d.chunks.length, 0);
+    const articleCount = allArticles.filter((k: any) => k.knowledgeBaseId === datasetId).length;
+    const docCount = dataset.documentCount ?? (dataset.documents || []).length;
+    const chunkCount = (dataset.documents || []).reduce((sum: number, d: any) => sum + d.chunks.length, 0);
 
     // 基本信息
     const [name, setName] = useState(dataset.name);
@@ -659,10 +670,10 @@ function SettingsPanel({ datasetId }: { datasetId: string }) {
                   <Input placeholder="如：\n\n, 。, ；" defaultValue="\n\n, 。" />
                 </div>
               )}
-              {dataset.documents.length > 0 && (
+              {(dataset.documents || []).length > 0 && (
                 <div className="chunk-preview" style={{ marginTop: 16 }}>
                   <div className="chunk-preview-title">分段预览（前 3 段）</div>
-                  {dataset.documents.slice(0, 1).map(doc =>
+                  {(dataset.documents || []).slice(0, 1).map(doc =>
                     doc.chunks.slice(0, 3).map(chunk => (
                       <div key={chunk.id} className="chunk-preview-item">
                         <span className="chunk-preview-index">分段 {chunk.index}</span>
@@ -869,7 +880,7 @@ export default function KnowledgeDetail() {
     const allArticles = allArticlesData?.items || [];
 
     const dataset = id ? datasets.find((ds: any) => ds.id === id) : null;
-    const articleCount = useMemo(() => allArticles.filter((k: any) => k.datasetId === dataset?.id).length, [allArticles, dataset?.id]);
+    const articleCount = useMemo(() => allArticles.filter((k: any) => k.knowledgeBaseId === dataset?.id).length, [allArticles, dataset?.id]);
     const chunkCount = useMemo(() => (dataset?.documents || []).reduce((sum: number, d: any) => sum + d.chunks.length, 0), [dataset?.documents]);
 
     if (!dataset) {
@@ -917,7 +928,7 @@ export default function KnowledgeDetail() {
             </div>
             <div className="detail-header-stat-divider" />
             <div className="detail-header-stat-item">
-              <span className="detail-header-stat-value">{dataset.documents.length}</span>
+              <span className="detail-header-stat-value">{(dataset.documents || []).length}</span>
               <span className="detail-header-stat-label">文档</span>
             </div>
             <div className="detail-header-stat-divider" />

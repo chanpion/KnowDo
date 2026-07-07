@@ -14,23 +14,30 @@ const typeConfig: Record<string, { color: string; label: string }> = {
   system: { color: 'default', label: '系统通知' },
 };
 
+interface NotificationItem {
+  id: string;
+  type: string;
+  read: boolean;
+  icon: string;
+  title: string;
+  desc: string;
+  time: string;
+  targetId?: string;
+}
+
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { data, isLoading } = useNotificationList();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
-  const notifications = (data as any)?.items || [];
+  const notifications: NotificationItem[] = (data as any)?.items || [];
   const unreadCount = (data as any)?.unreadCount || 0;
 
-  const handleClick = (n: ReturnType<typeof useAppStoreLegacy.getState>['notifications'][0]) => {
+  const handleClick = (n: NotificationItem) => {
     markRead.mutate(n.id);
-    if (n.type === 'publish' || n.type === 'like' || n.type === 'comment') {
-      const match = n.desc.match(/《(.+?)》/);
-      if (match) {
-        const article = useAppStoreLegacy.getState().articles.find(k => k.title.includes(match[1]));
-        if (article) navigate(`/article/${article.id}`);
-      }
+    if (n.targetId) {
+      navigate(`/article/${n.targetId}`);
     } else if (n.type === 'review') {
       navigate('/review');
     }

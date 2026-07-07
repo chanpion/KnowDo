@@ -83,7 +83,7 @@ export default function ReviewPage() {
                     <span className="ft-label" style={{ fontWeight: 500 }}>{item.title}</span>
                     <span className="ft-count">{item.author} · {item.authorDept}</span>
                     {item.aiScore > 0 && (
-                      <span className="ft-count" style={{ background: item.aiScore >= 4 ? '#dcfce7' : item.aiScore >= 3 ? '#fef3c7' : '#fee2e2', color: item.aiScore >= 4 ? '#166534' : item.aiScore >= 3 ? '#92400e' : '#991b1b' }}>
+                      <span className="ft-count" style={{ background: item.aiScore >= 80 ? '#dcfce7' : item.aiScore >= 60 ? '#fef3c7' : '#fee2e2', color: item.aiScore >= 80 ? '#166534' : item.aiScore >= 60 ? '#92400e' : '#991b1b' }}>
                         AI: {item.aiScore}
                       </span>
                     )}
@@ -134,12 +134,12 @@ export default function ReviewPage() {
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>🤖 AI 质量评估</div>
                 <div style={{ fontSize: 13 }}>
                   <span style={{ fontWeight: 500 }}>综合得分: </span>
-                  <Tag color={selectedReview.aiScore >= 4 ? 'green' : 'orange'}>{selectedReview.aiScore} / 5.0</Tag>
+                  <Tag color={selectedReview.aiScore >= 80 ? 'green' : 'orange'}>{(selectedReview.aiScore / 20).toFixed(1)} / 5.0</Tag>
                 </div>
                 {selectedReview.aiIssues.length > 0 ? (
                   <ul style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 13 }}>
                     {selectedReview.aiIssues.map((issue, i) => (
-                      <li key={i} style={{ color: '#a16207', marginBottom: 4 }}>{issue}</li>
+                      <li key={i} style={{ color: "#a16207", marginBottom: 4 }}>{issue.type}：{issue.content}</li>
                     ))}
                   </ul>
                 ) : (
