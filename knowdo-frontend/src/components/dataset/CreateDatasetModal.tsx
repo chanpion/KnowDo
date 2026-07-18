@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Form, Input, Select, message } from 'antd';
-import { useAppStoreLegacy } from '@/store';
 import { TAG_LIBRARY } from '@/mock/data';
+import { useCreateKnowledgeBase } from '@/hooks/use-knowledgebase';
 
 interface CreateDatasetModalProps {
   open: boolean;
@@ -9,8 +9,7 @@ interface CreateDatasetModalProps {
 }
 
 export default function CreateDatasetModal({ open, onClose }: CreateDatasetModalProps) {
-  const addKnowledgeBase = useAppStoreLegacy((s) => s.addKnowledgeBase);
-  const knowledgeBases = useAppStoreLegacy((s) => s.knowledgeBases);
+  const createKbMutate = useCreateKnowledgeBase();
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
@@ -19,14 +18,11 @@ export default function CreateDatasetModal({ open, onClose }: CreateDatasetModal
       const values = await form.validateFields();
       setLoading(true);
 
-      const newId = addKnowledgeBase({
+      await createKbMutate.mutateAsync({
         name: values.name.trim(),
         description: values.description?.trim() || '',
-        tags: values.tags || [],
         type: 'general',
-        vectorModel: 'bge-large-zh-v1.5',
-        folderId: '',
-        documents: [],
+        folder_id: '',
       });
 
       message.success(`知识库「${values.name}」创建成功`);
@@ -55,7 +51,7 @@ export default function CreateDatasetModal({ open, onClose }: CreateDatasetModal
       cancelText="取消"
       confirmLoading={loading}
       width={480}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}

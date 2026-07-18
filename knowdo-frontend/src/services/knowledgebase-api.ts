@@ -1,5 +1,40 @@
 import apiClient from './api-client';
 import type { PaginatedData } from './types';
+import type { KnowledgeBase } from '@/types';
+
+// 后端返回 snake_case 字段，且列表不携带 documents，这里统一适配为前端 KnowledgeBase 类型
+function mapKnowledgeBase(raw: any): KnowledgeBase {
+  return {
+    id: raw.id,
+    name: raw.name,
+    description: raw.description ?? '',
+    tags: raw.tags ?? [],
+    type: (raw.type ?? 'general') as KnowledgeBase['type'],
+    vectorModel: raw.vector_model ?? '',
+    webUrl: raw.web_url,
+    webSelector: raw.web_selector,
+    feishuAppId: raw.feishu_app_id,
+    feishuFolderToken: raw.feishu_folder_token,
+    status: (raw.status ?? 'pending') as KnowledgeBase['status'],
+    documents: raw.documents ?? [],
+    folderId: raw.folder_id ?? '',
+    createdAt: raw.created_at ?? '',
+    updatedAt: raw.updated_at ?? '',
+    chunkStrategy: raw.chunk_strategy,
+    uploadRule: raw.upload_rule,
+    documentCount: raw.document_count,
+    charCount: raw.chunk_count,
+    icon: raw.icon,
+    permission: raw.permission,
+    indexMode: raw.index_mode,
+    embeddingModel: raw.embedding_model,
+    searchMode: raw.search_mode,
+    topK: raw.top_k,
+    scoreThreshold: raw.score_threshold,
+    enableRerank: raw.enable_rerank,
+    rerankModel: raw.rerank_model,
+  };
+}
 
 export interface KnowledgeBaseListParams {
   folder_id?: string;
@@ -11,8 +46,16 @@ export interface KnowledgeBaseListParams {
 
 export const knowledgeBaseApi = {
   // 知识库 CRUD
-  list: (params?: KnowledgeBaseListParams): Promise<PaginatedData<unknown>> =>
-    apiClient.post('/api/knowledge', { action: 'list', ...params }),
+  list: async (params?: KnowledgeBaseListParams): Promise<PaginatedData<KnowledgeBase>> => {
+    const res = await apiClient.post('/api/knowledge', { action: 'list', ...params });
+    const items = (res?.items || []) as any[];
+    return {
+      items: items.map(mapKnowledgeBase),
+      total: res?.total ?? items.length,
+      page: res?.page ?? 1,
+      size: res?.size ?? items.length,
+    };
+  },
 
   create: (data: {
     name: string;
@@ -23,8 +66,8 @@ export const knowledgeBaseApi = {
   }) =>
     apiClient.post('/api/knowledge', { action: 'create', ...data }),
 
-  detail: (id: string) =>
-    apiClient.post('/api/knowledge', { action: 'detail', id }),
+  detail: async (id: string): Promise<KnowledgeBase> =>
+    mapKnowledgeBase(await apiClient.post('/api/knowledge', { action: 'detail', id })),
 
   update: (id: string, data: Record<string, unknown>) =>
     apiClient.post('/api/knowledge', { action: 'update', id, ...data }),

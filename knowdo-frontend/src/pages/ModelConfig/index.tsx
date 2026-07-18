@@ -197,7 +197,7 @@ export default function ModelConfigPage() {
       dataIndex: 'maxTokens',
       key: 'maxTokens',
       width: 100,
-      render: (tokens: number) => tokens.toLocaleString(),
+      render: (tokens?: number) => (tokens == null ? '-' : tokens.toLocaleString()),
     },
     {
       title: '并发数',
@@ -220,10 +220,10 @@ export default function ModelConfigPage() {
         <div>
           <div style={{ fontSize: 12 }}>{time}</div>
           <div style={{ fontSize: 12 }}>
-            {record.testResult.success ? (
+            {record.testResult?.success ? (
               <span style={{ color: '#10b981' }}>延迟 {record.testResult.latency}</span>
             ) : (
-              <span style={{ color: '#ef4444' }}>{record.testResult.error || '失败'}</span>
+              <span style={{ color: '#ef4444' }}>{record.testResult?.error || '未测试'}</span>
             )}
           </div>
         </div>

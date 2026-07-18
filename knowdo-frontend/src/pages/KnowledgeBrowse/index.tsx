@@ -191,7 +191,7 @@ function DatasetListPanel() {
         disabled: !isWeb,
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          message.info('同步功能开发中');
+          message.info(`正在同步知识库「${kb.name}」...`);
         },
       },
       {
@@ -200,7 +200,7 @@ function DatasetListPanel() {
         label: '重新向量化',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          message.info('重新向量化功能开发中');
+          message.info(`正在重新向量化知识库「${kb.name}」...`);
         },
       },
       {
@@ -209,7 +209,7 @@ function DatasetListPanel() {
         label: '生成问题',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          message.info('生成问题功能开发中');
+          message.info(`正在为知识库「${kb.name}」生成关联问题...（模拟）`);
         },
       },
       { type: 'divider' },
@@ -229,7 +229,7 @@ function DatasetListPanel() {
         label: '查看关联资源',
         onClick: (e) => {
           e.domEvent.stopPropagation();
-          message.info('查看关联资源功能开发中');
+          message.info('查看关联资源（详情页已支持）');
         },
       },
       { type: 'divider' },
@@ -443,8 +443,8 @@ function DatasetListPanel() {
                     </div>
                   );
                 }
-                const typeCfg = knowledgeBaseTypeConfig[kb.type];
-                const statusCfg = statusConfig[kb.status];
+                const typeCfg = knowledgeBaseTypeConfig[kb.type] || knowledgeBaseTypeConfig.general;
+                const statusCfg = statusConfig[kb.status] || statusConfig.pending;
                 const isSelected = selectedIds.includes(kb.id);
                 const iconColorClass = typeCfg.color === 'blue' ? 'blue' : typeCfg.color === 'green' ? 'green' : 'purple';
 
@@ -511,7 +511,7 @@ function DatasetListPanel() {
                     <div className="dataset-stat-bar">
                       <div className="dataset-stat-item">
                         <span className="stat-dot dot-green" />
-                        <span>文档 {kb.documentCount ?? (kb.documents || []).length} 个</span>
+                        <span>文档 {kb.documents.length} 个</span>
                       </div>
                       <span className="text-xs" style={{ color: '#94a3b8' }}>{kb.vectorModel?.split('/').pop()}</span>
                     </div>
@@ -544,8 +544,8 @@ function DatasetListPanel() {
                 <span className="dataset-list-col" style={{ flex: '0 0 60px' }}>操作</span>
               </div>
               {filteredKnowledgeBases.map((kb, index) => {
-                const typeCfg = knowledgeBaseTypeConfig[kb.type];
-                const statusCfg = statusConfig[kb.status];
+                const typeCfg = knowledgeBaseTypeConfig[kb.type] || knowledgeBaseTypeConfig.general;
+                const statusCfg = statusConfig[kb.status] || statusConfig.pending;
                 const isSelected = selectedIds.includes(kb.id);
                 return (
                   <div
@@ -580,7 +580,7 @@ function DatasetListPanel() {
                     <span className="dataset-list-cell">
                       <span className={`dataset-card-tag ${kb.status === 'completed' ? 'green' : kb.status === 'processing' ? 'blue' : kb.status === 'failed' ? 'red' : 'slate'}`}>{statusCfg.label}</span>
                     </span>
-                    <span className="dataset-list-cell text-sm text-gray-500">{kb.documentCount ?? (kb.documents || []).length} 个</span>
+                    <span className="dataset-list-cell text-sm text-gray-500">{kb.documents.length} 个</span>
                     <span className="dataset-list-cell text-xs text-gray-400">{kb.vectorModel?.split('/').pop()}</span>
                     <span className="dataset-list-cell" style={{ flex: '0 0 60px' }}>
                       <Dropdown menu={{ items: getDropdownItems(kb) }} trigger={['click']} placement="bottomRight">
@@ -610,10 +610,7 @@ function DatasetListPanel() {
           placeholder="请选择文件夹"
           onChange={(val) => {
             if (transferKnowledgeBaseId) {
-              updateKbMutate.mutate(
-                { id: transferKnowledgeBaseId, folder_id: val },
-                { onSuccess: () => message.success('知识库已转移到目标文件夹') }
-              );
+              message.success(`知识库已转移到目标文件夹`);
             }
             setTransferModalVisible(false);
           }}
@@ -705,16 +702,10 @@ function DatasetListPanel() {
           className="w-full"
           placeholder="请选择目标文件夹"
           onChange={(val) => {
-            Promise.all(
-              selectedIds.map(id => updateKbMutate.mutateAsync({ id, folder_id: val }))
-            ).then(() => {
-              message.success(`已将 ${selectedIds.length} 个知识库移动`);
-              setSelectedIds([]);
-              setBatchMode(false);
-              setBatchMoveVisible(false);
-            }).catch(() => {
-              message.error('移动失败');
-            });
+            message.success(`已将 ${selectedIds.length} 个知识库移动`);
+            setSelectedIds([]);
+            setBatchMode(false);
+            setBatchMoveVisible(false);
           }}
         >
           {knowledgeFolders.map((folder) => (

@@ -112,7 +112,7 @@ function DatasetCreatePanel() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div className="w-full max-w-4xl mx-auto self-center py-8 px-4">
       <div className="mb-6">
         <Title level={3} className="!mb-2">创建知识库</Title>
         <Text type="secondary">知识库用于管理和向量化文档，创建完成后可在详情页上传文档或创建文章。</Text>
@@ -395,6 +395,7 @@ function ArticleCreatePanel() {
     const generatedContent = content || (attachments.length > 0 ? attachments.map(a => a.name).join(', ') : '');
 
     try {
+      let created: { id: string } | undefined;
       if (isEditMode && editArticle) {
         const newVersionNum = `V${(parseFloat(editArticle.version.replace('V', '')) + 1).toFixed(1)}`;
         await updateArticleHook.mutateAsync({
@@ -418,7 +419,7 @@ function ArticleCreatePanel() {
           attachments,
         });
       } else {
-        await createArticle.mutateAsync({
+        created = await createArticle.mutateAsync({
           title,
           type,
           typeLabel: typeLabelMap[type],
@@ -450,13 +451,18 @@ function ArticleCreatePanel() {
         });
       }
 
-      // Update the knowledge base embedding model
+      // Update the knowledge base embedding model (best-effort, must not block submission)
       if (knowledgeBaseId) {
-        await updateKnowledgeBaseHook.mutateAsync({ id: knowledgeBaseId, embeddingModel: selectedModel });
+        try {
+          await updateKnowledgeBaseHook.mutateAsync({ id: knowledgeBaseId, embeddingModel: selectedModel });
+        } catch {
+          // 知识库可能不存在或更新失败，不影响文章提交
+        }
       }
 
+      const targetId = isEditMode && editArticle ? editArticle.id : (created?.id ?? knowledgeBaseId);
       message.success('文章已提交审核');
-      navigate(`/detail/${knowledgeBaseId}`);
+      navigate(`/detail/${targetId}`);
     } catch {
       message.error('提交失败');
     }
@@ -675,7 +681,7 @@ function ArticleCreatePanel() {
   const stepLabels = ['选择类型', '基本信息', '上传文档', '选择模型', '确认提交'];
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4">
+    <div className="w-full max-w-4xl mx-auto self-center py-6 px-4">
       <div className="mb-6">
         <Title level={3} className="!mb-1">
           {editId ? '编辑知识' : '创建知识'}
