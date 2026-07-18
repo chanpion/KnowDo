@@ -1,18 +1,22 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelCreateRequest(BaseModel):
     name: str
     provider: str
     type: str  # LLM / Embedding / Reranker
-    api_url: str
-    api_key: str
-    model_name: str
-    max_tokens: Optional[int] = None
+    api_url: str = Field(default="", alias="apiBase")
+    api_key: str = Field(default="", alias="apiKey")
+    model_name: str = Field(alias="modelName")
+    max_tokens: Optional[int] = Field(default=None, alias="maxTokens")
     concurrency: Optional[int] = None
     timeout: Optional[int] = None
     retry: Optional[int] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = {"populate_by_name": True}
 
 
 class ModelUpdateRequest(BaseModel):
@@ -20,13 +24,17 @@ class ModelUpdateRequest(BaseModel):
     name: Optional[str] = None
     provider: Optional[str] = None
     type: Optional[str] = None
-    api_url: Optional[str] = None
-    api_key: Optional[str] = None
-    model_name: Optional[str] = None
-    max_tokens: Optional[int] = None
+    api_url: Optional[str] = Field(default=None, alias="apiBase")
+    api_key: Optional[str] = Field(default=None, alias="apiKey")
+    model_name: Optional[str] = Field(default=None, alias="modelName")
+    max_tokens: Optional[int] = Field(default=None, alias="maxTokens")
     concurrency: Optional[int] = None
     timeout: Optional[int] = None
     retry: Optional[int] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+    model_config = {"populate_by_name": True}
 
 
 class ModelDetailRequest(BaseModel):
